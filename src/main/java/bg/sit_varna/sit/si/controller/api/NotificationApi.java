@@ -1,9 +1,13 @@
 package bg.sit_varna.sit.si.controller.api;
 
+import bg.sit_varna.sit.si.dto.request.GetFailedNotificationsRequest;
 import bg.sit_varna.sit.si.dto.request.SendNotificationRequest;
+import bg.sit_varna.sit.si.dto.response.PageResponse;
 import bg.sit_varna.sit.si.dto.response.SendNotificationResponse;
 import jakarta.validation.Valid;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -403,4 +407,54 @@ public interface NotificationApi {
             )
     })
     Response sendNotification(@Valid SendNotificationRequest request);
+
+    /**
+     * GET /api/v1/notifications/failed
+     */
+    @GET
+    @Path("/failed")
+    @Operation(
+            summary = "List failed notifications",
+            description = """
+            Returns a paginated list of notifications whose delivery status is FAILED,
+            ordered by creation date (most recent first).
+
+            **Pagination:**
+            - `page`: 0-based page index (default 0)
+            - `size`: number of items per page, capped at 100 (default 20)
+            """
+    )
+    @APIResponses(value = {
+            @APIResponse(
+                    responseCode = "200",
+                    description = "Paginated list of failed notifications",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = PageResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Failed Notifications Page",
+                                    value = """
+                        {
+                          "items": [
+                            {
+                              "notificationId": "550e8400-e29b-41d4-a716-446655440000",
+                              "recipient": "ivan.petrov@example.com",
+                              "channel": "EMAIL",
+                              "templateName": "email/welcome",
+                              "status": "FAILED",
+                              "createdAt": "2025-10-26T14:30:00",
+                              "updatedAt": "2025-10-26T14:31:12"
+                            }
+                          ],
+                          "page": 0,
+                          "size": 20,
+                          "totalItems": 1,
+                          "totalPages": 1
+                        }
+                        """
+                            )
+                    )
+            )
+    })
+    Response listFailedNotifications(@BeanParam GetFailedNotificationsRequest request);
 }

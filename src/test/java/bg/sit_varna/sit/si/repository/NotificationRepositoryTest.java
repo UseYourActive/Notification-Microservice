@@ -4,6 +4,7 @@ import bg.sit_varna.sit.si.BaseIntegrationTest;
 import bg.sit_varna.sit.si.constant.NotificationChannel;
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import io.quarkus.panache.common.Page;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -53,5 +54,28 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
 
         Assertions.assertFalse(failed.isEmpty());
         Assertions.assertTrue(failed.stream().anyMatch(r -> r.getRecipient().equals("status-test@example.com")));
+    }
+
+    @Test
+    @Transactional
+    void testFindByStatusPaged() {
+        for (int i = 0; i < 3; i++) {
+            NotificationRecord record = new NotificationRecord();
+            record.setId(UUID.randomUUID().toString());
+            record.setRecipient("paged-test-" + i + "@example.com");
+            record.setChannel(NotificationChannel.EMAIL);
+            record.setStatus(NotificationStatus.FAILED);
+            notificationRepository.persist(record);
+        }
+
+        List<NotificationRecord> firstPage = notificationRepository
+                .findByStatus(NotificationStatus.FAILED, Page.of(0, 2))
+                .list();
+
+        Assertions.assertEquals(2, firstPage.size());
+        Assertions.assertTrue(firstPage.stream().allMatch(r -> r.getStatus() == NotificationStatus.FAILED));
+
+        long total = notificationRepository.count("status", NotificationStatus.FAILED);
+        Assertions.assertTrue(total >= 3);
     }
 }

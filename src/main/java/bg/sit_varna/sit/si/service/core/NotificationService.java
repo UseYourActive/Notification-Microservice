@@ -9,6 +9,7 @@ import bg.sit_varna.sit.si.repository.NotificationRepository;
 import bg.sit_varna.sit.si.service.redis.DeduplicationService;
 import bg.sit_varna.sit.si.service.redis.RateLimitService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -16,6 +17,7 @@ import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.jboss.logging.Logger;
 
+import java.util.List;
 import java.util.Locale;
 
 @ApplicationScoped
@@ -63,6 +65,14 @@ public class NotificationService {
     public void retryNotification(Notification request) {
         LOG.infof("Retrying notification %s from Cold Queue", request.getId());
         enqueue(request);
+    }
+
+    public List<NotificationRecord> getFailedNotifications(int page, int size) {
+        return notificationRepository.findByStatus(NotificationStatus.FAILED, Page.of(page, size)).list();
+    }
+
+    public long countFailedNotifications() {
+        return notificationRepository.count("status", NotificationStatus.FAILED);
     }
 
     private void checkRateLimit(Notification request) {
