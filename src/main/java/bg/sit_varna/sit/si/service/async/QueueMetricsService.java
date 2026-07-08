@@ -41,6 +41,11 @@ public class QueueMetricsService {
                         repo -> repo.countByStatus(NotificationStatus.QUEUED))
                 .description("Number of notifications currently QUEUED")
                 .register(registry);
+        // Micrometer gauges hold their state object via a WeakReference by
+        // convention (so a gauge never keeps a short-lived object alive) - passing
+        // `this` is fine only because this is an @ApplicationScoped singleton kept
+        // alive for the app's lifetime by CDI. Don't change this to a shorter-lived
+        // object without re-checking that assumption.
         Gauge.builder("notifications.queue.oldest.age.seconds", this, QueueMetricsService::oldestQueuedAgeSeconds)
                 .description("Age in seconds of the oldest QUEUED notification, 0 when the queue is empty")
                 .register(registry);
