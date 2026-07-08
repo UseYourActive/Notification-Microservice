@@ -100,7 +100,7 @@ report back rather than improvising a workaround.
       when: a test asserts each counter increments on its triggering event and both
       gauges reflect actual DB state via the Micrometer test registry.
 
-- [ ] T9: Drop unused messaging dependency (conditional) — files: `pom.xml` — grep
+- [x] T9: Drop unused messaging dependency (conditional) — files: `pom.xml` — grep
       confirms zero remaining `@Incoming`/`@Outgoing`/`Emitter`/`mp.messaging` usage
       after T4; if none, remove `quarkus-messaging` from `pom.xml`. Done when: build
       and full test suite pass without the dependency (or, if something still needs
