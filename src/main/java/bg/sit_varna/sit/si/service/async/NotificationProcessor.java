@@ -11,7 +11,6 @@ import bg.sit_varna.sit.si.service.redis.MetricsService;
 import bg.sit_varna.sit.si.service.redis.RedisRetryService;
 import bg.sit_varna.sit.si.template.core.TemplateService;
 import io.smallrye.common.annotation.RunOnVirtualThread;
-import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
@@ -26,6 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Called directly by QueuePoller (one call per claimed row) - never invoke
  * processNotification via self-invocation (this.processNotification(...)); it must
  * go through the injected CDI bean so the @Retry/@Fallback interceptors apply.
+ * Graceful shutdown (stop claiming + drain in-flight work) is owned by QueuePoller,
+ * which can see both the claim loop and this class's in-flight counter.
  */
 @ApplicationScoped
 public class NotificationProcessor {
@@ -41,7 +42,6 @@ public class NotificationProcessor {
     private final DeduplicationService deduplicationService;
 
     private final AtomicInteger inFlightCount = new AtomicInteger();
-    private volatile boolean shuttingDown = false;
 
     @Inject
     public NotificationProcessor(ApplicationConfig applicationConfig,
@@ -72,11 +72,6 @@ public class NotificationProcessor {
         LOG.infof("Processing async notification [%s] for: %s via %s",
                 notification.getId(), notification.getRecipient(), notification.getChannel());
         MDC.put("notificationId", notification.getId());
-
-        if (shuttingDown) {
-            LOG.warn("App is shutting down. Skipping notification: " + notification.getId());
-            return; // Stop immediately
-        }
 
         if (deduplicationService.isAlreadySent(notification.getId())) {
             LOG.warnf("Notification %s was already sent - skipping duplicate send " +
@@ -112,9 +107,7 @@ public class NotificationProcessor {
             LOG.infof("Async processing completed for: %s", notification.getRecipient());
         } catch (Exception e) {
             LOG.error("Failed to process notification", e);
-            if (!shuttingDown) {
-                stateService.updateStatus(notification.getId(), NotificationStatus.FAILED, e.getMessage(), null);
-            }
+            stateService.updateStatus(notification.getId(), NotificationStatus.FAILED, e.getMessage(), null);
             throw e;
         } finally {
             inFlightCount.decrementAndGet();
@@ -148,11 +141,6 @@ public class NotificationProcessor {
         } finally {
             MDC.remove("notificationId");
         }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        this.shuttingDown = true;
     }
 
     private String processContent(Notification request) {

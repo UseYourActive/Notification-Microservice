@@ -82,7 +82,7 @@ report back rather than improvising a workaround.
       notification whose first `send()` throws and is retried (Layer-1 retry or
       cold-queue resurrection) still successfully sends on the later attempt.
 
-- [ ] T7: Real graceful drain on shutdown — files: `NotificationProcessor.java`
+- [x] T7: Real graceful drain on shutdown — files: `NotificationProcessor.java`
       (replace the `volatile boolean` flag with a shutdown path that stops the
       poller claiming new batches immediately, then blocks until the in-flight
       counter reaches zero, bounded by `quarkus.shutdown.timeout`), `QueuePoller.java`

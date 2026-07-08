@@ -5,10 +5,13 @@ import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import io.quarkus.scheduler.Scheduled;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -28,11 +31,13 @@ import java.util.concurrent.Semaphore;
 public class QueuePoller {
 
     private static final Logger LOG = Logger.getLogger(QueuePoller.class);
+    private static final Duration DRAIN_POLL_INTERVAL = Duration.ofMillis(50);
 
     private final String instanceId = UUID.randomUUID().toString();
     private final NotificationRepository notificationRepository;
     private final NotificationProcessor notificationProcessor;
     private final QueueConfig queueConfig;
+    private final Duration shutdownTimeout;
     private final Semaphore concurrencySlots;
     private final ExecutorService dispatchExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -41,10 +46,12 @@ public class QueuePoller {
     @Inject
     public QueuePoller(NotificationRepository notificationRepository,
                         NotificationProcessor notificationProcessor,
-                        QueueConfig queueConfig) {
+                        QueueConfig queueConfig,
+                        @ConfigProperty(name = "quarkus.shutdown.timeout") Duration shutdownTimeout) {
         this.notificationRepository = notificationRepository;
         this.notificationProcessor = notificationProcessor;
         this.queueConfig = queueConfig;
+        this.shutdownTimeout = shutdownTimeout;
         this.concurrencySlots = new Semaphore(queueConfig.workerConcurrency());
     }
 
@@ -68,8 +75,32 @@ public class QueuePoller {
         }
     }
 
-    void stopClaiming() {
+    /**
+     * Stops claiming new batches immediately, then blocks until NotificationProcessor
+     * has no in-flight work left, bounded by quarkus.shutdown.timeout - so a
+     * SIGTERM/rolling deploy drains what's already running instead of dropping it.
+     */
+    @PreDestroy
+    void shutdown() {
         claimingEnabled = false;
+
+        long deadline = System.nanoTime() + shutdownTimeout.toNanos();
+        while (notificationProcessor.getInFlightCount() > 0 && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(DRAIN_POLL_INTERVAL.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+
+        int remaining = notificationProcessor.getInFlightCount();
+        if (remaining > 0) {
+            LOG.warnf("Shutdown timeout (%s) reached with %d notification(s) still in flight",
+                    shutdownTimeout, remaining);
+        }
+
+        dispatchExecutor.shutdown();
     }
 
     private void dispatch(NotificationRepository.ClaimResult result) {
