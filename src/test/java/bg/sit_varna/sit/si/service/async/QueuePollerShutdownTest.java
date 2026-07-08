@@ -26,12 +26,14 @@ public class QueuePollerShutdownTest {
     private NotificationRepository notificationRepository;
     private NotificationProcessor notificationProcessor;
     private QueueConfig queueConfig;
+    private QueueMetricsService queueMetricsService;
 
     @BeforeEach
     void setUp() {
         notificationRepository = Mockito.mock(NotificationRepository.class);
         notificationProcessor = Mockito.mock(NotificationProcessor.class);
         queueConfig = Mockito.mock(QueueConfig.class);
+        queueMetricsService = Mockito.mock(QueueMetricsService.class);
         Mockito.when(queueConfig.workerConcurrency()).thenReturn(5);
         Mockito.when(queueConfig.batchSize()).thenReturn(10);
         Mockito.when(queueConfig.visibilityTimeout()).thenReturn(Duration.ofSeconds(60));
@@ -44,7 +46,7 @@ public class QueuePollerShutdownTest {
         Mockito.when(notificationProcessor.getInFlightCount()).thenReturn(1, 1, 1, 0);
 
         QueuePoller poller = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, Duration.ofSeconds(5));
+                queueConfig, Duration.ofSeconds(5), queueMetricsService);
 
         long start = System.nanoTime();
         poller.shutdown();
@@ -61,7 +63,7 @@ public class QueuePollerShutdownTest {
 
         Duration timeout = Duration.ofMillis(300);
         QueuePoller poller = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, timeout);
+                queueConfig, timeout, queueMetricsService);
 
         long start = System.nanoTime();
         poller.shutdown();
@@ -80,7 +82,7 @@ public class QueuePollerShutdownTest {
         Mockito.when(notificationProcessor.getInFlightCount()).thenReturn(0);
 
         QueuePoller poller = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, Duration.ofSeconds(5));
+                queueConfig, Duration.ofSeconds(5), queueMetricsService);
 
         poller.shutdown();
         poller.poll();

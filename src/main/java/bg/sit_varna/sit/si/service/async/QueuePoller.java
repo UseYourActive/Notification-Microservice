@@ -38,6 +38,7 @@ public class QueuePoller {
     private final NotificationProcessor notificationProcessor;
     private final QueueConfig queueConfig;
     private final Duration shutdownTimeout;
+    private final QueueMetricsService queueMetricsService;
     private final Semaphore concurrencySlots;
     private final ExecutorService dispatchExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -47,11 +48,13 @@ public class QueuePoller {
     public QueuePoller(NotificationRepository notificationRepository,
                         NotificationProcessor notificationProcessor,
                         QueueConfig queueConfig,
-                        @ConfigProperty(name = "quarkus.shutdown.timeout") Duration shutdownTimeout) {
+                        @ConfigProperty(name = "quarkus.shutdown.timeout") Duration shutdownTimeout,
+                        QueueMetricsService queueMetricsService) {
         this.notificationRepository = notificationRepository;
         this.notificationProcessor = notificationProcessor;
         this.queueConfig = queueConfig;
         this.shutdownTimeout = shutdownTimeout;
+        this.queueMetricsService = queueMetricsService;
         this.concurrencySlots = new Semaphore(queueConfig.workerConcurrency());
     }
 
@@ -69,6 +72,10 @@ public class QueuePoller {
         int limit = Math.min(available, queueConfig.batchSize());
         List<NotificationRepository.ClaimResult> claimed = notificationRepository.claimBatch(
                 limit, instanceId, queueConfig.visibilityTimeout().toSeconds());
+
+        int reapedCount = (int) claimed.stream().filter(NotificationRepository.ClaimResult::reaped).count();
+        queueMetricsService.recordClaimed(claimed.size());
+        queueMetricsService.recordReaped(reapedCount);
 
         for (NotificationRepository.ClaimResult result : claimed) {
             dispatch(result);

@@ -9,11 +9,13 @@ import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @ApplicationScoped
 public class NotificationRepository implements PanacheRepositoryBase<NotificationRecord, String> {
@@ -28,6 +30,16 @@ public class NotificationRepository implements PanacheRepositoryBase<Notificatio
 
     public PanacheQuery<NotificationRecord> findByStatus(NotificationStatus status, Page page) {
         return find("status", Sort.by("createdAt").descending(), status).page(page);
+    }
+
+    public long countByStatus(NotificationStatus status) {
+        return count("status", status);
+    }
+
+    public Optional<LocalDateTime> findOldestQueuedCreatedAt() {
+        return find("status", Sort.by("createdAt"), NotificationStatus.QUEUED)
+                .firstResultOptional()
+                .map(NotificationRecord::getCreatedAt);
     }
 
     /**

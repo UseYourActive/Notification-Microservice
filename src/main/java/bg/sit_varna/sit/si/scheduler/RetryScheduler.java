@@ -3,6 +3,7 @@ package bg.sit_varna.sit.si.scheduler;
 import bg.sit_varna.sit.si.config.queue.QueueConfig;
 import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
+import bg.sit_varna.sit.si.service.async.QueueMetricsService;
 import bg.sit_varna.sit.si.service.redis.RedisRetryService;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -19,14 +20,17 @@ public class RetryScheduler {
     private final RedisRetryService redisRetryService;
     private final NotificationRepository notificationRepository;
     private final QueueConfig queueConfig;
+    private final QueueMetricsService queueMetricsService;
 
     @Inject
     public RetryScheduler(RedisRetryService redisRetryService,
                            NotificationRepository notificationRepository,
-                           QueueConfig queueConfig) {
+                           QueueConfig queueConfig,
+                           QueueMetricsService queueMetricsService) {
         this.redisRetryService = redisRetryService;
         this.notificationRepository = notificationRepository;
         this.queueConfig = queueConfig;
+        this.queueMetricsService = queueMetricsService;
     }
 
     /**
@@ -47,6 +51,7 @@ public class RetryScheduler {
                 if (!requeued) {
                     LOG.warnf("Notification %s exhausted %d cold-retry cycles - leaving as terminal FAILED",
                             notification.getId(), queueConfig.maxColdRetryCycles());
+                    queueMetricsService.recordPoisoned();
                 }
             }
         }

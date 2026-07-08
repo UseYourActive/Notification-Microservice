@@ -91,7 +91,7 @@ report back rather than improvising a workaround.
       completes within the configured timeout (per constraint #6 — not just that a
       flag flips).
 
-- [ ] T8: Queue observability — files: new `QueueMetricsService` (Micrometer, not
+- [x] T8: Queue observability — files: new `QueueMetricsService` (Micrometer, not
       the existing Redis-counter `MetricsService` pattern) registering
       `notifications.queue.depth` (gauge), `notifications.queue.oldest.age.seconds`
       (gauge), `notifications.queue.claimed.total`,
