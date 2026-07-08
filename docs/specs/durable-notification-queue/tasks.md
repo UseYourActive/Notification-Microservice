@@ -106,7 +106,7 @@ report back rather than improvising a workaround.
       and full test suite pass without the dependency (or, if something still needs
       it, this task is marked deferred with the reason).
 
-- [ ] T10: End-to-end crash-recovery integration test — files: new
+- [x] T10: End-to-end crash-recovery integration test — files: new
       `QueueDurabilityTest` (extends `BaseIntegrationTest`) — simulate a
       crash-mid-processing (persist a `QUEUED` row, manually flip to `PROCESSING`
       with a stale `locked_at` beyond `VISIBILITY_TIMEOUT`) and assert the poller
