@@ -17,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Drives the durable notification queue: claims rows from Postgres (see
@@ -41,6 +42,7 @@ public class QueuePoller {
     private final QueueMetricsService queueMetricsService;
     private final Semaphore concurrencySlots;
     private final ExecutorService dispatchExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final AtomicInteger inFlightCount = new AtomicInteger();
 
     private volatile boolean claimingEnabled = true;
 
@@ -83,16 +85,19 @@ public class QueuePoller {
     }
 
     /**
-     * Stops claiming new batches immediately, then blocks until NotificationProcessor
-     * has no in-flight work left, bounded by quarkus.shutdown.timeout - so a
-     * SIGTERM/rolling deploy drains what's already running instead of dropping it.
+     * Stops claiming new batches immediately, then blocks until no dispatched row is
+     * still in flight, bounded by quarkus.shutdown.timeout - so a SIGTERM/rolling
+     * deploy drains what's already running instead of dropping it. Tracked here, at
+     * the dispatch boundary, spanning a row's entire claim (including @Retry's
+     * inter-attempt sleeps) - not inside NotificationProcessor, which @Retry
+     * re-invokes per attempt and would read zero between attempts.
      */
     @PreDestroy
     void shutdown() {
         claimingEnabled = false;
 
         long deadline = System.nanoTime() + shutdownTimeout.toNanos();
-        while (notificationProcessor.getInFlightCount() > 0 && System.nanoTime() < deadline) {
+        while (inFlightCount.get() > 0 && System.nanoTime() < deadline) {
             try {
                 Thread.sleep(DRAIN_POLL_INTERVAL.toMillis());
             } catch (InterruptedException e) {
@@ -101,7 +106,7 @@ public class QueuePoller {
             }
         }
 
-        int remaining = notificationProcessor.getInFlightCount();
+        int remaining = inFlightCount.get();
         if (remaining > 0) {
             LOG.warnf("Shutdown timeout (%s) reached with %d notification(s) still in flight",
                     shutdownTimeout, remaining);
@@ -119,12 +124,17 @@ public class QueuePoller {
         }
 
         Notification notification = toNotification(result.notification());
+        // Incremented here, before submit() - not inside the submitted task - so
+        // shutdown()'s drain check can never observe a task that's been handed to
+        // the executor but not yet counted.
+        inFlightCount.incrementAndGet();
         dispatchExecutor.submit(() -> {
             try {
                 notificationProcessor.processNotification(notification);
             } catch (Exception e) {
                 LOG.errorf(e, "Unhandled error dispatching notification %s", notification.getId());
             } finally {
+                inFlightCount.decrementAndGet();
                 concurrencySlots.release();
             }
         });

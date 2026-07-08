@@ -19,14 +19,14 @@ import org.eclipse.microprofile.faulttolerance.Retry;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * Called directly by QueuePoller (one call per claimed row) - never invoke
  * processNotification via self-invocation (this.processNotification(...)); it must
  * go through the injected CDI bean so the @Retry/@Fallback interceptors apply.
  * Graceful shutdown (stop claiming + drain in-flight work) is owned by QueuePoller,
- * which can see both the claim loop and this class's in-flight counter.
+ * which tracks in-flight work at the dispatch boundary - not here, since @Retry
+ * re-invokes this method once per attempt and an in-flight counter local to this
+ * method would read zero during the sleep between attempts.
  */
 @ApplicationScoped
 public class NotificationProcessor {
@@ -40,8 +40,6 @@ public class NotificationProcessor {
     private final ChannelStrategyFactory channelStrategyFactory;
     private final NotificationStateService stateService;
     private final DeduplicationService deduplicationService;
-
-    private final AtomicInteger inFlightCount = new AtomicInteger();
 
     @Inject
     public NotificationProcessor(ApplicationConfig applicationConfig,
@@ -60,10 +58,6 @@ public class NotificationProcessor {
         this.deduplicationService = deduplicationService;
     }
 
-    public int getInFlightCount() {
-        return inFlightCount.get();
-    }
-
     @RunOnVirtualThread
     @ActivateRequestContext
     @Retry // Layer 1: Fast in-memory retry (configured in application.properties)
@@ -79,7 +73,6 @@ public class NotificationProcessor {
             return;
         }
 
-        inFlightCount.incrementAndGet();
         try {
             // Render Template
             String processedContent = processContent(notification);
@@ -107,10 +100,14 @@ public class NotificationProcessor {
             LOG.infof("Async processing completed for: %s", notification.getRecipient());
         } catch (Exception e) {
             LOG.error("Failed to process notification", e);
-            stateService.updateStatus(notification.getId(), NotificationStatus.FAILED, e.getMessage(), null);
+            // Record the attempt but leave status as PROCESSING - @Retry re-invokes
+            // this method for the next attempt, so writing FAILED here would look
+            // terminal to claimBatch()'s reaper (which only reclaims QUEUED/stale-
+            // PROCESSING rows) and strand the row forever if the process crashes
+            // during the retry backoff. Only fallbackToRedis() writes a real FAILED.
+            stateService.recordAttemptFailure(notification.getId(), e.getMessage(), null);
             throw e;
         } finally {
-            inFlightCount.decrementAndGet();
             MDC.remove("notificationId");
         }
     }

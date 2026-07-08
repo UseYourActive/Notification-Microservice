@@ -45,6 +45,37 @@ public class NotificationStateService {
     }
 
     /**
+     * Records a single retriable attempt failure without touching the row's overall
+     * status - it stays PROCESSING. Deliberately NOT the same as updateStatus(...,
+     * FAILED, ...): @Retry re-invokes processNotification() on the same thread for
+     * each attempt, so writing a terminal-looking FAILED here would leave the row
+     * permanently unrecoverable if the process crashes during the retry backoff
+     * window (claimBatch's reaper only looks at QUEUED/stale-PROCESSING, never
+     * FAILED). Leaving status as PROCESSING lets that same reaper recover a
+     * mid-retry crash naturally. Only fallbackToRedis() (after retries are fully
+     * exhausted) writes a real terminal FAILED.
+     */
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public void recordAttemptFailure(String id, String message, String providerResponse) {
+        if (id == null) return;
+
+        NotificationRecord record = notificationRepository.findById(id);
+        if (record == null) {
+            LOG.warnf("Attempted to record an attempt for unknown notification: %s", id);
+            return;
+        }
+
+        NotificationAttempt attempt = new NotificationAttempt();
+        attempt.setStatus(NotificationStatus.FAILED);
+        attempt.setNotification(record);
+        attempt.setErrorMessage(truncate(message));
+        attempt.setProviderResponse(truncate(providerResponse));
+
+        record.getAttempts().add(attempt);
+        LOG.debugf("Recorded a failed attempt for notification %s (status left as %s)", id, record.getStatus());
+    }
+
+    /**
      * Marks one full Layer-1 (@Retry) + cold-queue cycle as exhausted. Called once
      * per fallbackToRedis() invocation - not per individual @Retry attempt - so
      * RetryScheduler can cap how many times a permanently-failing notification is

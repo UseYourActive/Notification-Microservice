@@ -205,3 +205,36 @@ No new containers. `TestResources.java` already starts Postgres + Redis
 ## Risks & open questions
 
 None outstanding — all four raised in the initial plan were resolved above.
+
+## Post-implementation review findings (fixed)
+
+Phase-3 code review (java-engineering:code-reviewer) surfaced two Major findings
+against the T1-T10 implementation, both stemming from the same root cause:
+intermediate `@Retry` attempt state was being treated as terminal state.
+
+1. **Mid-retry crash was still unrecoverable.** `NotificationProcessor`'s catch
+   block wrote `FAILED` to the row's status on *every* failed `@Retry` attempt, not
+   only after retries were exhausted (pre-existing behavior, harmless when the
+   queue was in-memory since a crash meant total loss either way - but now that
+   Postgres is the queue of record, a crash during the 2-6s retry backoff window
+   left the row in `FAILED` forever, since `claimBatch()`'s reaper only reclaims
+   `QUEUED`/stale-`PROCESSING` rows, never `FAILED`, and `attempts_count` was never
+   incremented outside `fallbackToRedis()`). Fixed: added
+   `NotificationStateService.recordAttemptFailure()`, which records the attempt for
+   the audit trail but leaves the row's status as `PROCESSING` - letting the
+   existing reaper recover a mid-retry crash naturally. Only `fallbackToRedis()`
+   (after retries are genuinely exhausted) still writes a real terminal `FAILED`.
+2. **In-flight counter could read zero mid-retry.** The counter lived inside
+   `NotificationProcessor.processNotification()`, which `@Retry` re-invokes once
+   per attempt - during the sleep between attempts it read `0` even though the row
+   was still logically in flight, so a shutdown landing in that window could
+   believe drain was complete and let the process exit mid-cycle. Fixed: moved
+   in-flight tracking to `QueuePoller`, incremented synchronously in `dispatch()`
+   before the work is handed to the executor (also closing a second, narrower race
+   the 12-factor re-audit flagged independently: a task submitted-but-not-yet-
+   started previously wasn't counted at all).
+
+Both fixes shipped in a follow-up commit after T10, with a full test run (33
+tests) and a dedicated `NotificationStateServiceTest` proving the exact property
+the crash-recovery guarantee depends on: `recordAttemptFailure` never flips status
+away from `PROCESSING`.
