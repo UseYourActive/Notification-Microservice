@@ -4,7 +4,7 @@ Execution discipline: one task per commit, tests in the same commit as the task
 that needs them. If a task turns out bigger than scoped here mid-flight, stop and
 report back rather than improvising a workaround.
 
-- [ ] T1: Add Flyway migration for queue-claim columns — pre-check: confirmed
+- [x] T1: Add Flyway migration for queue-claim columns — pre-check: confirmed
       neither `V1.0.1__Fix_Notification_Attempts_Id_Type.sql` nor
       `V1.1.0__Add_test_column.sql` exists in the repo or anywhere in git history
       (checked `git log --all --full-history`); dev DB's `flyway_schema_history` is
@@ -18,7 +18,7 @@ report back rather than improvising a workaround.
       `%test.quarkus.flyway.clean-at-start` and all existing tests still pass
       unmodified.
 
-- [ ] T2: Add claim-and-reap query to `NotificationRepository` — files:
+- [x] T2: Add claim-and-reap query to `NotificationRepository` — files:
       `NotificationRepository.java`, new `NotificationRepositoryTest` case(s) —
       `claimBatch(int limit, String workerId)` runs one native `UPDATE ...
       SET status='PROCESSING', locked_by=?, locked_at=now() WHERE id IN (SELECT id
@@ -30,7 +30,7 @@ report back rather than improvising a workaround.
       proves no row is claimed twice, and a row with `locked_at` older than the
       timeout is reclaimed.
 
-- [ ] T3: Wire queue config — files: `application.properties`, `.env.example`, new
+- [x] T3: Wire queue config — files: `application.properties`, `.env.example`, new
       `QueueConfig` (mirroring the existing `RedisConfig`/`ApplicationConfig`
       `@ConfigMapping` pattern) — add `POLL_INTERVAL` (default `500ms`),
       `POLL_BATCH_SIZE` (default reasonable value, e.g. `20`), `VISIBILITY_TIMEOUT`
@@ -41,21 +41,18 @@ report back rather than improvising a workaround.
       profiles with defaults, `QueueConfig` values are injectable and covered by a
       config-mapping test.
 
-- [ ] T4: Replace channel dispatch with poller-driven claim — files:
-      `NotificationService.java` (remove `Emitter<Notification>` field and
-      `enqueue()` — persisting the `QUEUED` row is now the entire dispatch),
-      `NotificationProcessor.java` (drop `@Incoming("notification-queue")`; keep
-      `processNotification()` as a plain public method; add in-flight tracking —
-      counter incremented before dispatch, decremented in `finally`), new
-      `QueuePoller` (`@Scheduled(every = POLL_INTERVAL)`, calls `claimBatch()` then
-      dispatches each claimed row to the **injected** `NotificationProcessor` bean on
-      a virtual thread, bounded by `WORKER_CONCURRENCY` in-flight). Done when:
-      existing `NotificationFlowTest` suite passes unmodified (behavior is
-      equivalent, just poller-driven), this is also the claim path cold-queue
-      resurrection relies on (see T5 for how `RetryScheduler` hands work back to
-      it), and a new test proves `@Retry`/`@Fallback`
-      still fire when invoked via the poller (guards against accidental
-      self-invocation — call must go through the injected bean, not `this`).
+- [x] T4: Replace channel dispatch with poller-driven claim. Done as scoped, plus
+      two corrections discovered mid-flight (both recorded in plan.md, user
+      approved fixes before continuing): (1) `NotificationRecord` didn't persist
+      `locale`/raw `message`, which would have silently lost data on every poller
+      claim, not just crash recovery — closed with migration V1.0.2 and
+      entity/service wiring; (2) Quarkus's built-in `@Scheduled` doesn't support
+      sub-1s intervals — `POLL_INTERVAL` default corrected from `500ms` to `1s`
+      (plan.md decision #1 updated accordingly). Also converted
+      `NotificationService`/`NotificationProcessor`/`RetryScheduler` from field to
+      constructor injection (required by the repo's injection-style guard once
+      these files were touched) and fixed a latent Awaitility/QuarkusTransaction
+      race in `testSendEmailFailureAndRetry` that the real poller tick exposed.
 
 - [ ] T5: Cap poison-message retries — files: `RetryScheduler.java`,
       `NotificationStateService.java` (or wherever `attempts_count` is incremented

@@ -125,6 +125,7 @@ public class NotificationProcessor {
                     "Immediate retries exhausted. Moved to Redis queue.",
                     null
             );
+            stateService.recordColdQueueCycle(notification.getId());
 
             metricsService.recordNotification(notification.getChannel(), NotificationStatus.FAILED);
 

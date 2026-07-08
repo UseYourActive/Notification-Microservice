@@ -93,20 +93,30 @@ public class NotificationRepository implements PanacheRepositoryBase<Notificatio
 
     /**
      * Cold-queue resurrection: flips a row back to QUEUED so the poller claims it
-     * through the normal claimBatch() path. Concurrent resurrection by multiple
+     * through the normal claimBatch() path, unless it has already exhausted
+     * maxCycles full Layer-1+cold-queue cycles (see
+     * NotificationStateService.recordColdQueueCycle), in which case it's left as a
+     * terminal FAILED and this returns false. Concurrent resurrection by multiple
      * replicas is safe - the flip itself is idempotent (every replica's
-     * RetryScheduler does the same flip), and claimBatch()'s FOR UPDATE SKIP LOCKED
-     * ensures only one replica ever wins the actual claim regardless of how many
-     * flipped the status.
+     * RetryScheduler does the same flip based on the same persisted attempts_count),
+     * and claimBatch()'s FOR UPDATE SKIP LOCKED ensures only one replica ever wins
+     * the actual claim regardless of how many flipped the status.
+     *
+     * @return true if the row was requeued, false if it was left terminally FAILED
+     *         (cap reached) or didn't exist.
      */
     @Transactional
-    public void requeue(String id) {
+    public boolean requeueIfBelowRetryCap(String id, int maxCycles) {
         NotificationRecord record = findById(id);
         if (record == null) {
-            return;
+            return false;
+        }
+        if (record.getAttemptsCount() >= maxCycles) {
+            return false;
         }
         record.setStatus(NotificationStatus.QUEUED);
         record.setLockedBy(null);
         record.setLockedAt(null);
+        return true;
     }
 }

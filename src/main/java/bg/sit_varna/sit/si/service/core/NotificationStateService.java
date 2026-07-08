@@ -14,8 +14,12 @@ public class NotificationStateService {
 
     private static final Logger LOG = Logger.getLogger(NotificationStateService.class);
 
+    private final NotificationRepository notificationRepository;
+
     @Inject
-    NotificationRepository notificationRepository;
+    public NotificationStateService(NotificationRepository notificationRepository) {
+        this.notificationRepository = notificationRepository;
+    }
 
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public void updateStatus(String id, NotificationStatus status, String message, String providerResponse) {
@@ -38,6 +42,23 @@ public class NotificationStateService {
 
         record.getAttempts().add(attempt);
         LOG.debugf("Updated notification %s to %s", id, status);
+    }
+
+    /**
+     * Marks one full Layer-1 (@Retry) + cold-queue cycle as exhausted. Called once
+     * per fallbackToRedis() invocation - not per individual @Retry attempt - so
+     * RetryScheduler can cap how many times a permanently-failing notification is
+     * resurrected (see NotificationRepository.requeueIfBelowRetryCap).
+     */
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public void recordColdQueueCycle(String id) {
+        if (id == null) return;
+
+        NotificationRecord record = notificationRepository.findById(id);
+        if (record == null) {
+            return;
+        }
+        record.setAttemptsCount(record.getAttemptsCount() + 1);
     }
 
     private String truncate(String input) {
