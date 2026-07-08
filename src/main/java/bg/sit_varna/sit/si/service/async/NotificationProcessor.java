@@ -6,6 +6,7 @@ import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.service.channel.strategies.ChannelStrategy;
 import bg.sit_varna.sit.si.service.channel.strategies.ChannelStrategyFactory;
 import bg.sit_varna.sit.si.service.core.NotificationStateService;
+import bg.sit_varna.sit.si.service.redis.DeduplicationService;
 import bg.sit_varna.sit.si.service.redis.MetricsService;
 import bg.sit_varna.sit.si.service.redis.RedisRetryService;
 import bg.sit_varna.sit.si.template.core.TemplateService;
@@ -37,6 +38,7 @@ public class NotificationProcessor {
     private final MetricsService metricsService;
     private final ChannelStrategyFactory channelStrategyFactory;
     private final NotificationStateService stateService;
+    private final DeduplicationService deduplicationService;
 
     private final AtomicInteger inFlightCount = new AtomicInteger();
     private volatile boolean shuttingDown = false;
@@ -47,13 +49,15 @@ public class NotificationProcessor {
                                   TemplateService templateService,
                                   MetricsService metricsService,
                                   ChannelStrategyFactory channelStrategyFactory,
-                                  NotificationStateService stateService) {
+                                  NotificationStateService stateService,
+                                  DeduplicationService deduplicationService) {
         this.applicationConfig = applicationConfig;
         this.redisRetryService = redisRetryService;
         this.templateService = templateService;
         this.metricsService = metricsService;
         this.channelStrategyFactory = channelStrategyFactory;
         this.stateService = stateService;
+        this.deduplicationService = deduplicationService;
     }
 
     public int getInFlightCount() {
@@ -74,6 +78,12 @@ public class NotificationProcessor {
             return; // Stop immediately
         }
 
+        if (deduplicationService.isAlreadySent(notification.getId())) {
+            LOG.warnf("Notification %s was already sent - skipping duplicate send " +
+                    "(likely a reaper reclaim of a row that wasn't actually dead)", notification.getId());
+            return;
+        }
+
         inFlightCount.incrementAndGet();
         try {
             // Render Template
@@ -85,6 +95,10 @@ public class NotificationProcessor {
                             "No strategy configured for channel: " + notification.getChannel()));
 
             strategy.send(notification);
+            // Mark the send-guard only after send() succeeds - never before - so a
+            // failed attempt (this one throws below to @Retry/@Fallback) remains
+            // retryable instead of being permanently blocked by its own guard.
+            deduplicationService.markSent(notification.getId());
 
             stateService.updateStatus(
                     notification.getId(),

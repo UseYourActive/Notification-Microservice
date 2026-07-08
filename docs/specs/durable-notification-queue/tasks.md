@@ -54,7 +54,7 @@ report back rather than improvising a workaround.
       these files were touched) and fixed a latent Awaitility/QuarkusTransaction
       race in `testSendEmailFailureAndRetry` that the real poller tick exposed.
 
-- [ ] T5: Cap poison-message retries — files: `RetryScheduler.java`,
+- [x] T5: Cap poison-message retries — files: `RetryScheduler.java`,
       `NotificationStateService.java` (or wherever `attempts_count` is incremented
       per full Layer-1+cold-queue cycle) — after `MAX_COLD_RETRY_CYCLES`, stop
       resurrecting from the Redis cold queue and leave the row as terminal `FAILED`
@@ -71,7 +71,7 @@ report back rather than improvising a workaround.
       asserts `RetryScheduler` stops re-enqueuing it afterward (closes the existing
       infinite-retry gap).
 
-- [ ] T6: Add send-time dedup guard — files: `DeduplicationService.java` (add an
+- [x] T6: Add send-time dedup guard — files: `DeduplicationService.java` (add an
       ID-keyed check, reusing the existing Redis-backed mechanism, not a new one),
       `NotificationProcessor.java` (call it immediately before the channel-strategy
       `send()` to check, and mark the ID as sent **only after `send()` returns
