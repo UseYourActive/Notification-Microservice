@@ -51,6 +51,15 @@ public class NotificationRecord extends PanacheEntityBase {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "locked_by")
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    @Column(name = "attempts_count", nullable = false)
+    private int attemptsCount;
+
     @OneToMany(mappedBy = "notification", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<NotificationAttempt> attempts = new ArrayList<>();
 
@@ -124,5 +133,29 @@ public class NotificationRecord extends PanacheEntityBase {
 
     public void setAttempts(List<NotificationAttempt> attempts) {
         this.attempts = attempts;
+    }
+
+    public String getLockedBy() {
+        return lockedBy;
+    }
+
+    public void setLockedBy(String lockedBy) {
+        this.lockedBy = lockedBy;
+    }
+
+    public LocalDateTime getLockedAt() {
+        return lockedAt;
+    }
+
+    public void setLockedAt(LocalDateTime lockedAt) {
+        this.lockedAt = lockedAt;
+    }
+
+    public int getAttemptsCount() {
+        return attemptsCount;
+    }
+
+    public void setAttemptsCount(int attemptsCount) {
+        this.attemptsCount = attemptsCount;
     }
 }
