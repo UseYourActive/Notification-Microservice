@@ -35,6 +35,10 @@ public class NotificationRecord extends PanacheEntityBase {
     @Column(name = "template_name")
     private String templateName;
 
+    private String locale;
+
+    private String message;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationStatus status;
@@ -93,6 +97,22 @@ public class NotificationRecord extends PanacheEntityBase {
 
     public void setTemplateName(String templateName) {
         this.templateName = templateName;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public void setLocale(String locale) {
+        this.locale = locale;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public NotificationStatus getStatus() {

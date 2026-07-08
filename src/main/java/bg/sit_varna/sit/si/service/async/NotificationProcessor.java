@@ -16,25 +16,50 @@ import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.faulttolerance.Fallback;
 import org.eclipse.microprofile.faulttolerance.Retry;
-import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Called directly by QueuePoller (one call per claimed row) - never invoke
+ * processNotification via self-invocation (this.processNotification(...)); it must
+ * go through the injected CDI bean so the @Retry/@Fallback interceptors apply.
+ */
 @ApplicationScoped
 public class NotificationProcessor {
 
     private static final Logger LOG = Logger.getLogger(NotificationProcessor.class);
 
+    private final ApplicationConfig applicationConfig;
+    private final RedisRetryService redisRetryService;
+    private final TemplateService templateService;
+    private final MetricsService metricsService;
+    private final ChannelStrategyFactory channelStrategyFactory;
+    private final NotificationStateService stateService;
+
+    private final AtomicInteger inFlightCount = new AtomicInteger();
     private volatile boolean shuttingDown = false;
 
-    @Inject ApplicationConfig applicationConfig;
-    @Inject RedisRetryService redisRetryService;
-    @Inject TemplateService templateService;
-    @Inject MetricsService metricsService;
-    @Inject ChannelStrategyFactory channelStrategyFactory;
-    @Inject NotificationStateService stateService;
+    @Inject
+    public NotificationProcessor(ApplicationConfig applicationConfig,
+                                  RedisRetryService redisRetryService,
+                                  TemplateService templateService,
+                                  MetricsService metricsService,
+                                  ChannelStrategyFactory channelStrategyFactory,
+                                  NotificationStateService stateService) {
+        this.applicationConfig = applicationConfig;
+        this.redisRetryService = redisRetryService;
+        this.templateService = templateService;
+        this.metricsService = metricsService;
+        this.channelStrategyFactory = channelStrategyFactory;
+        this.stateService = stateService;
+    }
 
-    @Incoming("notification-queue")
+    public int getInFlightCount() {
+        return inFlightCount.get();
+    }
+
     @RunOnVirtualThread
     @ActivateRequestContext
     @Retry // Layer 1: Fast in-memory retry (configured in application.properties)
@@ -49,6 +74,7 @@ public class NotificationProcessor {
             return; // Stop immediately
         }
 
+        inFlightCount.incrementAndGet();
         try {
             // Render Template
             String processedContent = processContent(notification);
@@ -77,6 +103,7 @@ public class NotificationProcessor {
             }
             throw e;
         } finally {
+            inFlightCount.decrementAndGet();
             MDC.remove("notificationId");
         }
     }

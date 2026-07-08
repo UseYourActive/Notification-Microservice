@@ -190,7 +190,10 @@ No new containers. `TestResources.java` already starts Postgres + Redis
 
 ## Decisions (resolved 2026-07-08)
 
-1. `POLL_INTERVAL` default `500ms`, env-tunable.
+1. `POLL_INTERVAL` default `1s`, env-tunable. (Corrected from the originally
+   approved `500ms` during T4: Quarkus's built-in `@Scheduled` scheduler doesn't
+   support sub-1s intervals — logs a warning and silently applies an indeterminate
+   delay instead. `1s` is the floor it actually honors.)
 2. `VISIBILITY_TIMEOUT` default `60s`, env-tunable — comfortably exceeds the current
    worst-case `RETRY_MAX_ATTEMPTS` × `RETRY_DELAY` (3 × 2000ms) plus real send
    latency.

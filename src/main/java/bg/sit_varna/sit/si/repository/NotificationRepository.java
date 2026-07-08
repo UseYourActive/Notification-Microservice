@@ -90,4 +90,23 @@ public class NotificationRepository implements PanacheRepositoryBase<Notificatio
 
     public record ClaimResult(NotificationRecord notification, boolean reaped) {
     }
+
+    /**
+     * Cold-queue resurrection: flips a row back to QUEUED so the poller claims it
+     * through the normal claimBatch() path. Concurrent resurrection by multiple
+     * replicas is safe - the flip itself is idempotent (every replica's
+     * RetryScheduler does the same flip), and claimBatch()'s FOR UPDATE SKIP LOCKED
+     * ensures only one replica ever wins the actual claim regardless of how many
+     * flipped the status.
+     */
+    @Transactional
+    public void requeue(String id) {
+        NotificationRecord record = findById(id);
+        if (record == null) {
+            return;
+        }
+        record.setStatus(NotificationStatus.QUEUED);
+        record.setLockedBy(null);
+        record.setLockedAt(null);
+    }
 }

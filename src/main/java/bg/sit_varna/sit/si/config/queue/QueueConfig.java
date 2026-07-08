@@ -8,7 +8,7 @@ import java.time.Duration;
 @ConfigMapping(prefix = "queue")
 public interface QueueConfig {
 
-    @WithDefault("500ms")
+    @WithDefault("1s")
     Duration pollInterval();
 
     @WithDefault("20")

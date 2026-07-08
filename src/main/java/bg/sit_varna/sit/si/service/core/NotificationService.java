@@ -8,13 +8,10 @@ import bg.sit_varna.sit.si.exception.exceptions.RateLimitException;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import bg.sit_varna.sit.si.service.redis.DeduplicationService;
 import bg.sit_varna.sit.si.service.redis.RateLimitService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.jboss.logging.Logger;
 
 import java.util.List;
@@ -25,24 +22,21 @@ public class NotificationService {
 
     private static final Logger LOG = Logger.getLogger(NotificationService.class);
 
-    @Inject
-    RateLimitService rateLimitService;
+    private final RateLimitService rateLimitService;
+    private final DeduplicationService deduplicationService;
+    private final MessageService messageService;
+    private final NotificationRepository notificationRepository;
 
     @Inject
-    DeduplicationService deduplicationService;
-
-    @Inject
-    MessageService messageService;
-
-    @Inject
-    ObjectMapper objectMapper;
-
-    @Inject
-    NotificationRepository notificationRepository;
-
-    @Inject
-    @Channel("notification-queue")
-    Emitter<Notification> notificationEmitter;
+    public NotificationService(RateLimitService rateLimitService,
+                                DeduplicationService deduplicationService,
+                                MessageService messageService,
+                                NotificationRepository notificationRepository) {
+        this.rateLimitService = rateLimitService;
+        this.deduplicationService = deduplicationService;
+        this.messageService = messageService;
+        this.notificationRepository = notificationRepository;
+    }
 
     public void dispatchNotification(Notification request) {
         // 1. Rate Limiting
@@ -55,16 +49,9 @@ public class NotificationService {
             return;
         }
 
-        // 3. Persistence (In its own transaction to prevent Race Condition)
+        // 3. Persistence is the entire dispatch: the notification-queue poller claims
+        // QUEUED rows directly from this table (see QueuePoller), no in-memory hop.
         persistRecord(request);
-
-        // 4. Async Dispatch
-        enqueue(request);
-    }
-
-    public void retryNotification(Notification request) {
-        LOG.infof("Retrying notification %s from Cold Queue", request.getId());
-        enqueue(request);
     }
 
     public List<NotificationRecord> getFailedNotifications(int page, int size) {
@@ -99,14 +86,11 @@ public class NotificationService {
         record.setRecipient(request.getRecipient());
         record.setChannel(request.getChannel());
         record.setTemplateName(request.getTemplateName());
+        record.setLocale(request.getLocale());
+        record.setMessage(request.getMessage());
         record.setStatus(NotificationStatus.QUEUED);
         record.setPayload(request.getData());
 
         notificationRepository.persist(record);
-    }
-
-    private void enqueue(Notification request) {
-        LOG.debugf("Enqueuing notification for: %s", request.getRecipient());
-        notificationEmitter.send(request);
     }
 }

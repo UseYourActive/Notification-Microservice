@@ -15,7 +15,7 @@ public class QueueConfigTest {
 
     @Test
     void loadsConfiguredDefaults() {
-        Assertions.assertEquals(Duration.ofMillis(500), queueConfig.pollInterval());
+        Assertions.assertEquals(Duration.ofSeconds(1), queueConfig.pollInterval());
         Assertions.assertEquals(20, queueConfig.batchSize());
         Assertions.assertEquals(Duration.ofSeconds(60), queueConfig.visibilityTimeout());
         Assertions.assertEquals(5, queueConfig.maxColdRetryCycles());
