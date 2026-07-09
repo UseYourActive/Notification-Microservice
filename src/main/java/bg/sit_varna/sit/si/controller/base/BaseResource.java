@@ -13,17 +13,20 @@ import java.util.Locale;
 
 public abstract class BaseResource {
 
+    // Not final: Quarkus ArC requires a non-private no-args constructor on
+    // these JAX-RS resource beans to generate a client proxy (confirmed
+    // empirically - removing it fails deployment with "unproxyable bean
+    // class"), and that constructor can't assign these.
     protected LocaleResolver localeResolver;
+    protected WebhookHeaderResolver headerResolver;
 
     @Context
     protected HttpHeaders httpHeaders;
 
     @Inject
-    protected WebhookHeaderResolver headerResolver;
-
-    @Inject
-    public BaseResource(LocaleResolver localeResolver) {
+    protected BaseResource(LocaleResolver localeResolver, WebhookHeaderResolver headerResolver) {
         this.localeResolver = localeResolver;
+        this.headerResolver = headerResolver;
     }
 
     protected BaseResource() {

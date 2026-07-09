@@ -10,8 +10,12 @@ import java.util.Map;
 @ApplicationScoped
 public class QuteTemplateEngine {
 
+    private final Engine engine;
+
     @Inject
-    Engine engine;
+    public QuteTemplateEngine(Engine engine) {
+        this.engine = engine;
+    }
 
     public String compileAndRender(String rawTemplateContent, Map<String, Object> data) {
         Template t = engine.parse(rawTemplateContent);

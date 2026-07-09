@@ -28,10 +28,14 @@ public class SendGridEmailSender implements EmailSender {
 
     private static final Logger LOG = Logger.getLogger(SendGridEmailSender.class);
 
+    private final SendGridConfig sendGridConfig;
+    private final MessageService messageService;
+
     @Inject
-    SendGridConfig sendGridConfig;
-    @Inject
-    MessageService messageService;
+    public SendGridEmailSender(SendGridConfig sendGridConfig, MessageService messageService) {
+        this.sendGridConfig = sendGridConfig;
+        this.messageService = messageService;
+    }
 
     public boolean isConfigured() {
         return sendGridConfig.isConfigured();

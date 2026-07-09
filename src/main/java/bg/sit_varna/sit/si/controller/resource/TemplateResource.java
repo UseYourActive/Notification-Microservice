@@ -9,6 +9,7 @@ import bg.sit_varna.sit.si.dto.request.TemplateValidationRequest;
 import bg.sit_varna.sit.si.dto.response.GetTemplatesResponse;
 import bg.sit_varna.sit.si.dto.response.TemplateValidationResponse;
 import bg.sit_varna.sit.si.dto.response.UpdateTemplateRequest;
+import bg.sit_varna.sit.si.service.webhook.WebhookHeaderResolver;
 import bg.sit_varna.sit.si.template.core.TemplateInfo;
 import bg.sit_varna.sit.si.template.core.TemplateService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -27,16 +28,19 @@ public class TemplateResource extends BaseResource implements TemplateApi {
 
     private static final Logger LOG = Logger.getLogger(TemplateResource.class);
 
+    // Not final - see BaseResource's no-args constructor comment.
     private TemplateService templateService;
 
     @Inject
     public TemplateResource(LocaleResolver localeResolver,
+                            WebhookHeaderResolver headerResolver,
                             TemplateService templateService) {
-        super(localeResolver);
+        super(localeResolver, headerResolver);
         this.templateService = templateService;
     }
 
-    protected TemplateResource() {}
+    protected TemplateResource() {
+    }
 
     @Override
     protected Logger getLogger() {
