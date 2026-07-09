@@ -19,11 +19,14 @@ public final class TelegramNotificationStrategy implements ChannelStrategy {
 
     private static final Logger LOG = Logger.getLogger(TelegramNotificationStrategy.class);
 
-    @Inject
-    TelegramApiSender telegramApiSender;
+    private final TelegramApiSender telegramApiSender;
+    private final MessageService messageService;
 
     @Inject
-    MessageService messageService;
+    public TelegramNotificationStrategy(TelegramApiSender telegramApiSender, MessageService messageService) {
+        this.telegramApiSender = telegramApiSender;
+        this.messageService = messageService;
+    }
 
     @Override
     public void send(Notification notification) {

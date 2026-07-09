@@ -17,14 +17,16 @@ public class WebhookService {
 
     private static final Logger LOG = Logger.getLogger(WebhookService.class);
 
-    @Inject
-    SendGridConfig sendGridConfig;
+    private final SendGridConfig sendGridConfig;
+    private final ObjectMapper objectMapper;
+    private final WebhookProcessor webhookProcessor;
 
     @Inject
-    ObjectMapper objectMapper;
-
-    @Inject
-    WebhookProcessor webhookProcessor;
+    public WebhookService(SendGridConfig sendGridConfig, ObjectMapper objectMapper, WebhookProcessor webhookProcessor) {
+        this.sendGridConfig = sendGridConfig;
+        this.objectMapper = objectMapper;
+        this.webhookProcessor = webhookProcessor;
+    }
 
     public void verifyAndProcess(String signature, String timestamp, String rawPayload) {
         if (!isSignatureValid(signature, timestamp, rawPayload)) {
