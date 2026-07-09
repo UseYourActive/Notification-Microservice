@@ -5,6 +5,7 @@ import bg.sit_varna.sit.si.config.queue.QueueConfig;
 import bg.sit_varna.sit.si.constant.NotificationChannel;
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.mapper.NotificationRecordMapper;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import bg.sit_varna.sit.si.service.channel.email.SendGridEmailSender;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -41,6 +42,7 @@ public class QueueDurabilityTest extends BaseIntegrationTest {
     @Inject NotificationProcessor notificationProcessor;
     @Inject QueueConfig queueConfig;
     @Inject QueueMetricsService queueMetricsService;
+    @Inject NotificationRecordMapper notificationRecordMapper;
     @ConfigProperty(name = "quarkus.shutdown.timeout")
     Duration shutdownTimeout;
     @InjectMock SendGridEmailSender sendGridEmailSender;
@@ -109,7 +111,7 @@ public class QueueDurabilityTest extends BaseIntegrationTest {
         // A second "replica" poller, racing against the app's own live-scheduled
         // QueuePoller instance for the same claimable rows.
         QueuePoller secondReplica = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, shutdownTimeout, queueMetricsService);
+                queueConfig, shutdownTimeout, queueMetricsService, notificationRecordMapper);
 
         long pollUntil = System.nanoTime() + Duration.ofSeconds(3).toNanos();
         while (System.nanoTime() < pollUntil) {

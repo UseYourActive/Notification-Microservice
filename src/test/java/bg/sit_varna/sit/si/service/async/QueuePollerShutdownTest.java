@@ -4,6 +4,7 @@ import bg.sit_varna.sit.si.config.queue.QueueConfig;
 import bg.sit_varna.sit.si.constant.NotificationChannel;
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.mapper.NotificationRecordMapper;
 import bg.sit_varna.sit.si.repository.ClaimResult;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ public class QueuePollerShutdownTest {
     private NotificationProcessor notificationProcessor;
     private QueueConfig queueConfig;
     private QueueMetricsService queueMetricsService;
+    private NotificationRecordMapper notificationRecordMapper;
 
     @BeforeEach
     void setUp() {
@@ -45,6 +47,7 @@ public class QueuePollerShutdownTest {
         notificationProcessor = Mockito.mock(NotificationProcessor.class);
         queueConfig = Mockito.mock(QueueConfig.class);
         queueMetricsService = Mockito.mock(QueueMetricsService.class);
+        notificationRecordMapper = new NotificationRecordMapper();
         Mockito.when(queueConfig.workerConcurrency()).thenReturn(5);
         Mockito.when(queueConfig.batchSize()).thenReturn(10);
         Mockito.when(queueConfig.visibilityTimeout()).thenReturn(Duration.ofSeconds(60));
@@ -61,7 +64,7 @@ public class QueuePollerShutdownTest {
                 .thenReturn(List.of(claimResult()));
 
         QueuePoller poller = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, Duration.ofSeconds(5), queueMetricsService);
+                queueConfig, Duration.ofSeconds(5), queueMetricsService, notificationRecordMapper);
 
         poller.poll(); // synchronously increments in-flight, then hands the slow work to a virtual thread
 
@@ -87,7 +90,7 @@ public class QueuePollerShutdownTest {
 
         Duration timeout = Duration.ofMillis(300);
         QueuePoller poller = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, timeout, queueMetricsService);
+                queueConfig, timeout, queueMetricsService, notificationRecordMapper);
 
         poller.poll();
 
@@ -106,7 +109,7 @@ public class QueuePollerShutdownTest {
     @Test
     void shutdownStopsClaimingNewBatches() {
         QueuePoller poller = new QueuePoller(notificationRepository, notificationProcessor,
-                queueConfig, Duration.ofSeconds(5), queueMetricsService);
+                queueConfig, Duration.ofSeconds(5), queueMetricsService, notificationRecordMapper);
 
         poller.shutdown();
         poller.poll();

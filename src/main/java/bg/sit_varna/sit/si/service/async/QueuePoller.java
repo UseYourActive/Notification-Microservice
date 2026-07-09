@@ -2,7 +2,7 @@ package bg.sit_varna.sit.si.service.async;
 
 import bg.sit_varna.sit.si.config.queue.QueueConfig;
 import bg.sit_varna.sit.si.dto.model.Notification;
-import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.mapper.NotificationRecordMapper;
 import bg.sit_varna.sit.si.repository.ClaimResult;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import io.quarkus.scheduler.Scheduled;
@@ -41,6 +41,7 @@ public class QueuePoller {
     private final QueueConfig queueConfig;
     private final Duration shutdownTimeout;
     private final QueueMetricsService queueMetricsService;
+    private final NotificationRecordMapper notificationRecordMapper;
     private final Semaphore concurrencySlots;
     private final ExecutorService dispatchExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final AtomicInteger inFlightCount = new AtomicInteger();
@@ -52,12 +53,14 @@ public class QueuePoller {
                         NotificationProcessor notificationProcessor,
                         QueueConfig queueConfig,
                         @ConfigProperty(name = "quarkus.shutdown.timeout") Duration shutdownTimeout,
-                        QueueMetricsService queueMetricsService) {
+                        QueueMetricsService queueMetricsService,
+                        NotificationRecordMapper notificationRecordMapper) {
         this.notificationRepository = notificationRepository;
         this.notificationProcessor = notificationProcessor;
         this.queueConfig = queueConfig;
         this.shutdownTimeout = shutdownTimeout;
         this.queueMetricsService = queueMetricsService;
+        this.notificationRecordMapper = notificationRecordMapper;
         this.concurrencySlots = new Semaphore(queueConfig.workerConcurrency());
     }
 
@@ -124,7 +127,7 @@ public class QueuePoller {
             return;
         }
 
-        Notification notification = toNotification(result.notification());
+        Notification notification = notificationRecordMapper.toNotification(result.notification());
         // Incremented here, before submit() - not inside the submitted task - so
         // shutdown()'s drain check can never observe a task that's been handed to
         // the executor but not yet counted.
@@ -139,17 +142,5 @@ public class QueuePoller {
                 concurrencySlots.release();
             }
         });
-    }
-
-    private static Notification toNotification(NotificationRecord record) {
-        return Notification.builder()
-                .id(record.getId())
-                .recipient(record.getRecipient())
-                .channel(record.getChannel())
-                .templateName(record.getTemplateName())
-                .locale(record.getLocale())
-                .data(record.getPayload())
-                .message(record.getMessage())
-                .build();
     }
 }
