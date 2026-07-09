@@ -110,6 +110,68 @@ class NotificationAttemptsMigrationReconciliationTest {
         }
     }
 
+    /**
+     * The advance-only setval guard has two sides: never regress (covered
+     * above), but also actually raise the sequence when the table's real data
+     * legitimately gets ahead of it - e.g. a manual/bulk data load that
+     * inserts explicit id values without going through nextval() at all.
+     * Runs against its own container (not the shared one above) since Flyway
+     * only ever migrates a given schema once.
+     */
+    @Test
+    void advanceOnlyRaisesTheSequenceWhenTableDataIsAheadOfIt() throws Exception {
+        PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+                .withDatabaseName("reconciliation_advance_test")
+                .withUsername("test")
+                .withPassword("test");
+        postgres.start();
+        try {
+            try (Connection connection = DriverManager.getConnection(
+                    postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                 Statement statement = connection.createStatement()) {
+                statement.execute("""
+                        CREATE TABLE notifications (
+                            id VARCHAR(255) NOT NULL PRIMARY KEY
+                        )
+                        """);
+                statement.execute("""
+                        CREATE TABLE notification_attempts (
+                            id BIGINT NOT NULL PRIMARY KEY,
+                            notification_id VARCHAR(255) NOT NULL,
+                            FOREIGN KEY (notification_id) REFERENCES notifications(id)
+                        )
+                        """);
+                statement.execute("CREATE SEQUENCE notification_attempts_seq INCREMENT BY 50");
+                // Sequence starts fresh (last_value 1), but a row exists with an
+                // id far ahead of it - e.g. a manual/bulk data load that bypassed
+                // nextval() entirely.
+                statement.execute("INSERT INTO notifications (id) VALUES ('seed-1')");
+                statement.execute("INSERT INTO notification_attempts (id, notification_id) VALUES (500, 'seed-1')");
+            }
+
+            Flyway.configure()
+                    .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+                    .locations("classpath:db/migrations")
+                    .baselineOnMigrate(true)
+                    .baselineVersion("1.0.2")
+                    .load()
+                    .migrate();
+
+            try (Connection connection = DriverManager.getConnection(
+                    postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                 Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery(
+                         "select last_value from pg_sequences where sequencename = 'notification_attempts_seq'")) {
+                assertTrue(rs.next());
+                assertTrue(rs.getLong(1) >= 500,
+                        "the sequence must be raised past a row whose id already exceeds it, or the next "
+                                + "nextval() call would collide with that row");
+            }
+        } finally {
+            postgres.stop();
+        }
+    }
+
     private static Connection openConnection() throws Exception {
         return DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
     }
