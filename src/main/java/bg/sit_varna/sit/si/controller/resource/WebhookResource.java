@@ -1,9 +1,11 @@
 package bg.sit_varna.sit.si.controller.resource;
 
+import bg.sit_varna.sit.si.config.app.LocaleResolver;
 import bg.sit_varna.sit.si.constant.WebhookProvider;
 import bg.sit_varna.sit.si.controller.api.WebhookApi;
 import bg.sit_varna.sit.si.controller.base.BaseResource;
 import bg.sit_varna.sit.si.dto.model.WebhookSignature;
+import bg.sit_varna.sit.si.service.webhook.WebhookHeaderResolver;
 import bg.sit_varna.sit.si.service.webhook.WebhookService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -15,8 +17,18 @@ public class WebhookResource extends BaseResource implements WebhookApi {
 
     private static final Logger LOG = Logger.getLogger(WebhookResource.class);
 
+    // Not final - see BaseResource's no-args constructor comment.
+    private WebhookService webhookService;
+
     @Inject
-    WebhookService webhookService;
+    public WebhookResource(LocaleResolver localeResolver, WebhookHeaderResolver headerResolver,
+                            WebhookService webhookService) {
+        super(localeResolver, headerResolver);
+        this.webhookService = webhookService;
+    }
+
+    protected WebhookResource() {
+    }
 
     @Override
     public Response handleSendGridWebhook(String rawPayload) {

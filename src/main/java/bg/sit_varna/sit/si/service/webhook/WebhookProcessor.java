@@ -18,10 +18,14 @@ public class WebhookProcessor {
 
     private static final Logger LOG = Logger.getLogger(WebhookProcessor.class);
 
+    private final NotificationRepository notificationRepository;
+    private final NotificationStateService stateService;
+
     @Inject
-    NotificationRepository notificationRepository;
-    @Inject
-    NotificationStateService stateService;
+    public WebhookProcessor(NotificationRepository notificationRepository, NotificationStateService stateService) {
+        this.notificationRepository = notificationRepository;
+        this.stateService = stateService;
+    }
 
     @Transactional
     public void processEvents(List<SendGridEvent> events) {
