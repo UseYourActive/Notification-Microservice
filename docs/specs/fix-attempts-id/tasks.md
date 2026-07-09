@@ -41,7 +41,7 @@
       this session's own test runs — the flawed drafts were replaced with one
       correct `V1.0.3` instead of layered forward-fixes.
 
-- [ ] T2: Replace the check-then-act dedup guard in
+- [x] T2: Replace the check-then-act dedup guard in
       `NotificationService.persistRecord()` with unique-constraint-violation
       handling per plan.md Design §3: remove the `findById` pre-check,
       `persist()` + explicit `flush()`, catch `PersistenceException`, unwrap

@@ -7,6 +7,7 @@ public enum ErrorCategory {
     CONFIGURATION("CONFIGURATION"),
     MESSAGING("MESSAGING"),
     RATE_LIMIT("RATE_LIMIT"),
+    CONFLICT("CONFLICT"),
     SYSTEM("SYSTEM");
 
     private final String value;
