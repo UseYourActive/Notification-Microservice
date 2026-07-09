@@ -86,7 +86,7 @@ public class NotificationService {
         record.setRecipient(request.getRecipient());
         record.setChannel(request.getChannel());
         record.setTemplateName(request.getTemplateName());
-        record.setLocale(request.getLocale());
+        record.setLocale(request.getLocale() != null ? Locale.forLanguageTag(request.getLocale()) : null);
         record.setMessage(request.getMessage());
         record.setStatus(NotificationStatus.QUEUED);
         record.setPayload(request.getData());

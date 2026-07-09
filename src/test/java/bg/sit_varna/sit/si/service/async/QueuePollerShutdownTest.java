@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -125,7 +126,7 @@ public class QueuePollerShutdownTest {
         record.setChannel(NotificationChannel.EMAIL);
         record.setStatus(NotificationStatus.PROCESSING);
         record.setMessage("Hello");
-        record.setLocale("en");
+        record.setLocale(Locale.forLanguageTag("en"));
         return new ClaimResult(record, false);
     }
 }

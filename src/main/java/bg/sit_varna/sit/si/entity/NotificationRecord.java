@@ -12,6 +12,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Entity
@@ -35,7 +36,7 @@ public class NotificationRecord extends PanacheEntityBase {
     @Column(name = "template_name")
     private String templateName;
 
-    private String locale;
+    private Locale locale;
 
     private String message;
 
@@ -99,11 +100,11 @@ public class NotificationRecord extends PanacheEntityBase {
         this.templateName = templateName;
     }
 
-    public String getLocale() {
+    public Locale getLocale() {
         return locale;
     }
 
-    public void setLocale(String locale) {
+    public void setLocale(Locale locale) {
         this.locale = locale;
     }
 

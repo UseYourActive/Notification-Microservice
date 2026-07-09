@@ -6,10 +6,12 @@ import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Plain unit test - NotificationRecordMapper is a pure field-by-field mapping with
@@ -26,7 +28,7 @@ class NotificationRecordMapperTest {
         record.setRecipient("mapper-test@example.com");
         record.setChannel(NotificationChannel.EMAIL);
         record.setTemplateName("welcome");
-        record.setLocale("en");
+        record.setLocale(Locale.forLanguageTag("en"));
         record.setMessage("Hello there");
         record.setStatus(NotificationStatus.PROCESSING);
         record.setPayload(Map.of("name", "Alex"));
@@ -37,8 +39,21 @@ class NotificationRecordMapperTest {
         assertEquals(record.getRecipient(), notification.getRecipient());
         assertEquals(record.getChannel(), notification.getChannel());
         assertEquals(record.getTemplateName(), notification.getTemplateName());
-        assertEquals(record.getLocale(), notification.getLocale());
+        assertEquals(record.getLocale().toLanguageTag(), notification.getLocale());
         assertEquals(record.getMessage(), notification.getMessage());
         assertEquals(record.getPayload(), notification.getData());
+    }
+
+    @Test
+    void toNotificationLeavesLocaleNullWhenRecordHasNoLocale() {
+        NotificationRecord record = new NotificationRecord();
+        record.setId(UUID.randomUUID().toString());
+        record.setRecipient("no-locale@example.com");
+        record.setChannel(NotificationChannel.SMS);
+        record.setStatus(NotificationStatus.QUEUED);
+
+        Notification notification = mapper.toNotification(record);
+
+        assertNull(notification.getLocale());
     }
 }

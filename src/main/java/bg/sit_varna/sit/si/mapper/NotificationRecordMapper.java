@@ -19,7 +19,7 @@ public class NotificationRecordMapper {
                 .recipient(record.getRecipient())
                 .channel(record.getChannel())
                 .templateName(record.getTemplateName())
-                .locale(record.getLocale())
+                .locale(record.getLocale() != null ? record.getLocale().toLanguageTag() : null)
                 .data(record.getPayload())
                 .message(record.getMessage())
                 .build();

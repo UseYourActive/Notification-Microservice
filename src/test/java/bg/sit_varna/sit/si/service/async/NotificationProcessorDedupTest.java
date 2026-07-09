@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Locale;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -78,7 +79,7 @@ public class NotificationProcessorDedupTest extends BaseIntegrationTest {
             record.setChannel(NotificationChannel.EMAIL);
             record.setStatus(NotificationStatus.QUEUED);
             record.setMessage("Hello from test");
-            record.setLocale("en");
+            record.setLocale(Locale.forLanguageTag("en"));
             notificationRepository.persist(record);
         });
     }

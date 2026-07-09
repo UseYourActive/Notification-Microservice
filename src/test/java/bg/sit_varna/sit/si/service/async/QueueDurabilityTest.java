@@ -20,6 +20,7 @@ import org.mockito.Mockito;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,7 +68,7 @@ public class QueueDurabilityTest extends BaseIntegrationTest {
             record.setLockedBy("dead-worker");
             record.setLockedAt(staleLockedAt);
             record.setMessage("Hello");
-            record.setLocale("en");
+            record.setLocale(Locale.forLanguageTag("en"));
             notificationRepository.persist(record);
         });
 
@@ -103,7 +104,7 @@ public class QueueDurabilityTest extends BaseIntegrationTest {
                 record.setChannel(NotificationChannel.EMAIL);
                 record.setStatus(NotificationStatus.QUEUED);
                 record.setMessage("Hello");
-                record.setLocale("en");
+                record.setLocale(Locale.forLanguageTag("en"));
                 notificationRepository.persist(record);
             });
         }
