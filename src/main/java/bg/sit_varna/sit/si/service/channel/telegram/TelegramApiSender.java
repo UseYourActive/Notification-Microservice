@@ -30,11 +30,14 @@ public class TelegramApiSender {
     private static final String TELEGRAM_API_BASE = "https://api.telegram.org/bot";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    @Inject
-    TelegramConfig telegramConfig;
+    private final TelegramConfig telegramConfig;
+    private final MessageService messageService;
 
     @Inject
-    MessageService messageService;
+    public TelegramApiSender(TelegramConfig telegramConfig, MessageService messageService) {
+        this.telegramConfig = telegramConfig;
+        this.messageService = messageService;
+    }
 
     public boolean isConfigured() {
         return telegramConfig.isConfigured();
