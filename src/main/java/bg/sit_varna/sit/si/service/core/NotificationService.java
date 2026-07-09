@@ -59,7 +59,7 @@ public class NotificationService {
     }
 
     public long countFailedNotifications() {
-        return notificationRepository.count("status", NotificationStatus.FAILED);
+        return notificationRepository.countByStatus(NotificationStatus.FAILED);
     }
 
     private void checkRateLimit(Notification request) {
