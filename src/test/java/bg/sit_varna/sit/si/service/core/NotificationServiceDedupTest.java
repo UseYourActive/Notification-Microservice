@@ -13,12 +13,16 @@ import jakarta.ws.rs.core.Response;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * NotificationService.persistRecord() used to guard duplicate ids with a
@@ -94,6 +98,53 @@ class NotificationServiceDedupTest extends BaseIntegrationTest {
         }
         assertInstanceOf(ConstraintViolationException.class, cause);
         assertEquals("23502", ((ConstraintViolationException) cause).getSQLState());
+    }
+
+    // isDuplicateNotificationId's real job is telling this table's PK
+    // violation apart from every other 23505 that could ever exist on this
+    // table - a scenario real Hibernate/Postgres won't reproduce today since
+    // there's only one unique constraint here. Driven directly (the method
+    // is package-private for exactly this) with fabricated exceptions rather
+    // than left unverified.
+    @Test
+    void isDuplicateNotificationIdMatchesOnlyThisTablesPkViolation() {
+        assertTrue(NotificationService.isDuplicateNotificationId(
+                constraintViolation("23505", "notifications_pkey")));
+    }
+
+    @Test
+    void isDuplicateNotificationIdRejectsADifferentUniqueConstraint() {
+        assertFalse(NotificationService.isDuplicateNotificationId(
+                constraintViolation("23505", "uk_notifications_some_other_column")),
+                "a different constraint hitting 23505 must not be reported as a duplicate id");
+    }
+
+    @Test
+    void isDuplicateNotificationIdRejectsAnUnknownConstraintName() {
+        assertFalse(NotificationService.isDuplicateNotificationId(
+                constraintViolation("23505", null)),
+                "an unresolved constraint name must fail closed, not be assumed to be the PK");
+    }
+
+    @Test
+    void isDuplicateNotificationIdRejectsANonUniqueViolation() {
+        assertFalse(NotificationService.isDuplicateNotificationId(
+                constraintViolation("23502", "notifications_pkey")),
+                "only SQLState 23505 (unique violation) counts, regardless of constraint name");
+    }
+
+    @Test
+    void findConstraintViolationWalksTheCauseChain() {
+        ConstraintViolationException violation = constraintViolation("23505", "notifications_pkey");
+        RuntimeException wrapper = new RuntimeException("wrapped", violation);
+
+        assertEquals(violation, NotificationService.findConstraintViolation(wrapper));
+        assertNull(NotificationService.findConstraintViolation(new RuntimeException("no violation here")));
+    }
+
+    private static ConstraintViolationException constraintViolation(String sqlState, String constraintName) {
+        return new ConstraintViolationException("simulated violation",
+                new SQLException("simulated", sqlState), constraintName);
     }
 
     private static Notification notification(String id, String recipient) {

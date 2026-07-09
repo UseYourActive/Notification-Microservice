@@ -67,7 +67,7 @@ public class NotificationService {
     }
 
     private void checkRateLimit(Notification request) {
-        Locale locale = Locale.forLanguageTag(request.getLocale());
+        Locale locale = request.getLocale() != null ? Locale.forLanguageTag(request.getLocale()) : Locale.ENGLISH;
         if (!rateLimitService.isAllowed(request.getRecipient(), request.getChannel())) {
             long resetTime = rateLimitService.getResetTime(request.getRecipient(), request.getChannel());
             throw new RateLimitException(
@@ -114,8 +114,13 @@ public class NotificationService {
      * Hibernate has been observed to throw this bare, but jakarta.persistence.*
      * wrappers are common enough across versions/paths that it's worth walking
      * the cause chain rather than assuming a fixed exception shape.
+     *
+     * Package-private (not private) so NotificationServiceDedupTest can drive
+     * it directly with a fabricated ConstraintViolationException, covering
+     * exception shapes real Hibernate/Postgres behavior won't reliably
+     * reproduce in a test.
      */
-    private static ConstraintViolationException findConstraintViolation(Throwable throwable) {
+    static ConstraintViolationException findConstraintViolation(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
             if (current instanceof ConstraintViolationException violation) {
@@ -128,15 +133,14 @@ public class NotificationService {
 
     /**
      * SQLState 23505 is the reliable, dialect-standard signal for a unique
-     * violation; the constraint name is checked in addition, when available,
-     * so a future second unique constraint on this table doesn't get silently
-     * folded into "duplicate notification id".
+     * violation, but not specific enough on its own - the constraint name
+     * must also match this table's PK exactly. A null/unavailable constraint
+     * name does NOT count as a match: failing closed (rethrow the original
+     * exception) is safer than risking a future second unique constraint on
+     * this table being silently folded into "duplicate notification id".
      */
-    private static boolean isDuplicateNotificationId(ConstraintViolationException violation) {
-        if (!UNIQUE_VIOLATION_SQLSTATE.equals(violation.getSQLState())) {
-            return false;
-        }
-        String constraintName = violation.getConstraintName();
-        return constraintName == null || NOTIFICATIONS_PK_CONSTRAINT.equals(constraintName);
+    static boolean isDuplicateNotificationId(ConstraintViolationException violation) {
+        return UNIQUE_VIOLATION_SQLSTATE.equals(violation.getSQLState())
+                && NOTIFICATIONS_PK_CONSTRAINT.equals(violation.getConstraintName());
     }
 }
