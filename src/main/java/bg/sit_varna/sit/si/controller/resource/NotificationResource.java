@@ -13,6 +13,7 @@ import bg.sit_varna.sit.si.dto.response.SendNotificationResponse;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
 import bg.sit_varna.sit.si.mapper.NotificationMapper;
 import bg.sit_varna.sit.si.service.core.NotificationService;
+import bg.sit_varna.sit.si.service.webhook.WebhookHeaderResolver;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -29,14 +30,16 @@ public class NotificationResource extends BaseResource implements NotificationAp
     private static final Logger LOG = Logger.getLogger(NotificationResource.class);
     private static final int MAX_PAGE_SIZE = 100;
 
+    // Not final - see BaseResource's no-args constructor comment.
     private NotificationService notificationService;
     private NotificationMapper notificationMapper;
 
     @Inject
     public NotificationResource(LocaleResolver localeResolver,
+                                WebhookHeaderResolver headerResolver,
                                 NotificationService notificationService,
                                 NotificationMapper notificationMapper) {
-        super(localeResolver);
+        super(localeResolver, headerResolver);
         this.notificationService = notificationService;
         this.notificationMapper = notificationMapper;
     }

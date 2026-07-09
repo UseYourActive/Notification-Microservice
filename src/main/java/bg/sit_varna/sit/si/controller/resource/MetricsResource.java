@@ -12,8 +12,12 @@ import java.util.Map;
 @ApplicationScoped
 public class MetricsResource implements MetricsApi {
 
+    private final MetricsService metricsService;
+
     @Inject
-    MetricsService metricsService;
+    public MetricsResource(MetricsService metricsService) {
+        this.metricsService = metricsService;
+    }
 
     @Override
     public Response getTodayMetrics() {
