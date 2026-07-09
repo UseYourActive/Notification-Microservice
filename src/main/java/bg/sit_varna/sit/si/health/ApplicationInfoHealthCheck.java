@@ -12,8 +12,12 @@ import org.eclipse.microprofile.health.Liveness;
 @ApplicationScoped
 public class ApplicationInfoHealthCheck implements HealthCheck {
 
+    private final ApplicationConfig applicationConfig;
+
     @Inject
-    ApplicationConfig applicationConfig;
+    public ApplicationInfoHealthCheck(ApplicationConfig applicationConfig) {
+        this.applicationConfig = applicationConfig;
+    }
 
     @Override
     public HealthCheckResponse call() {

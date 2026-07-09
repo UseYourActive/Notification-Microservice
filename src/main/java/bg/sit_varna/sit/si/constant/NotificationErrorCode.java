@@ -164,6 +164,14 @@ public enum NotificationErrorCode {
                 "error.rate-limit.exceeded",
                 "error.title.rate-limit-exceeded",
         Response.Status.TOO_MANY_REQUESTS // 429
+    ),
+
+    // Conflict errors (NOTIF_081 - NOTIF_090)
+    DUPLICATE_NOTIFICATION(
+            "NOTIF_081",
+            "error.notification.duplicate",
+            "error.title.duplicate-notification",
+            Response.Status.CONFLICT // 409 - notification id already exists
     );
 
     private final String code;

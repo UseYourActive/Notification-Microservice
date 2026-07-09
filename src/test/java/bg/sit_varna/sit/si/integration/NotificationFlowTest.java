@@ -53,11 +53,40 @@ public class NotificationFlowTest extends BaseIntegrationTest {
                 .extract().path("notificationId");
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            QuarkusTransaction.requiringNew().run(() -> {
-                NotificationRecord record = notificationRepository.findById(id);
-                assertEquals(NotificationStatus.FAILED, record.getStatus());
-            });
+            // Read inside the transaction, assert outside it: QuarkusTransaction wraps
+            // any exception thrown inside .run()/.call() (including AssertionError)
+            // into a QuarkusTransactionException, which breaks Awaitility's retry -
+            // it only retries on a bare AssertionError, so the assertion must happen
+            // after the transactional call returns, not inside it.
+            NotificationStatus status = QuarkusTransaction.requiringNew()
+                    .call(() -> notificationRepository.findById(id).getStatus());
+            assertEquals(NotificationStatus.FAILED, status);
         });
+    }
+
+    @Test
+    void testRetryFiresThroughPollerDispatch() {
+        // QueuePoller now calls NotificationProcessor.processNotification() directly
+        // (no more @Incoming channel). This proves @Retry still applies when invoked
+        // that way - if the poller ever called it via self-invocation instead of the
+        // injected CDI bean, the interceptor would be skipped and send() would only
+        // be attempted once.
+        Mockito.doThrow(new RuntimeException("Simulated 3rd Party Error"))
+                .when(sendGridEmailSender)
+                .send(any(), any(), any(), any(), any(), any(), any());
+
+        SendNotificationRequest request = new SendNotificationRequest(
+                NotificationChannel.EMAIL,
+                "retry-count@example.com", "email/welcome", null,
+                Map.of("firstName", "Tester", "appName", "JUnit", "actionUrl", "u", "supportEmail", "h", "year", "2025")
+        );
+
+        given().contentType("application/json").body(request)
+                .post("/api/v1/notifications/send").then().statusCode(202);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                Mockito.verify(sendGridEmailSender, Mockito.atLeast(2))
+                        .send(any(), any(), any(), any(), any(), any(), any()));
     }
 
     @Test
