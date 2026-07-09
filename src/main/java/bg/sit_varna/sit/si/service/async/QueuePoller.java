@@ -6,6 +6,7 @@ import bg.sit_varna.sit.si.mapper.NotificationRecordMapper;
 import bg.sit_varna.sit.si.repository.ClaimResult;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import io.quarkus.scheduler.Scheduled;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -35,7 +36,7 @@ public class QueuePoller {
     private static final Logger LOG = Logger.getLogger(QueuePoller.class);
     private static final Duration DRAIN_POLL_INTERVAL = Duration.ofMillis(50);
 
-    private final String instanceId = UUID.randomUUID().toString();
+    private final String instanceId = buildInstanceId();
     private final NotificationRepository notificationRepository;
     private final NotificationProcessor notificationProcessor;
     private final QueueConfig queueConfig;
@@ -62,6 +63,18 @@ public class QueuePoller {
         this.queueMetricsService = queueMetricsService;
         this.notificationRecordMapper = notificationRecordMapper;
         this.concurrencySlots = new Semaphore(queueConfig.workerConcurrency());
+    }
+
+    @PostConstruct
+    void logStartup() {
+        LOG.infof("QueuePoller starting with instanceId=%s (locked_by rows can be traced to this machine)", instanceId);
+    }
+
+    private static String buildInstanceId() {
+        String hostname = System.getenv("HOSTNAME");
+        String host = (hostname != null && !hostname.isBlank()) ? hostname : "local";
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        return host + "-" + suffix;
     }
 
     @Scheduled(every = "{queue.poll-interval}")
