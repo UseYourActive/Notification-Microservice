@@ -4,6 +4,7 @@ import bg.sit_varna.sit.si.constant.NotificationErrorCode;
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.exception.exceptions.DuplicateNotificationException;
 import bg.sit_varna.sit.si.exception.exceptions.RateLimitException;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import bg.sit_varna.sit.si.service.redis.DeduplicationService;
@@ -12,6 +13,7 @@ import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 
 import java.util.List;
@@ -21,6 +23,8 @@ import java.util.Locale;
 public class NotificationService {
 
     private static final Logger LOG = Logger.getLogger(NotificationService.class);
+    private static final String NOTIFICATIONS_PK_CONSTRAINT = "notifications_pkey";
+    private static final String UNIQUE_VIOLATION_SQLSTATE = "23505";
 
     private final RateLimitService rateLimitService;
     private final DeduplicationService deduplicationService;
@@ -77,10 +81,6 @@ public class NotificationService {
 
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     protected void persistRecord(Notification request) {
-        if (notificationRepository.findById(request.getId()) != null) {
-            return;
-        }
-
         NotificationRecord record = new NotificationRecord();
         record.setId(request.getId());
         record.setRecipient(request.getRecipient());
@@ -91,6 +91,52 @@ public class NotificationService {
         record.setStatus(NotificationStatus.QUEUED);
         record.setPayload(request.getData());
 
-        notificationRepository.persist(record);
+        try {
+            notificationRepository.persist(record);
+            // Forces the INSERT (and thus the constraint check) to happen here,
+            // synchronously, instead of being deferred to commit time - after
+            // this method (and its catch block) would already have returned.
+            notificationRepository.flush();
+        } catch (RuntimeException e) {
+            ConstraintViolationException violation = findConstraintViolation(e);
+            if (violation == null || !isDuplicateNotificationId(violation)) {
+                throw e;
+            }
+            LOG.warnf("Duplicate notification id detected: %s", request.getId());
+            Locale locale = request.getLocale() != null ? Locale.forLanguageTag(request.getLocale()) : Locale.ENGLISH;
+            throw new DuplicateNotificationException(
+                    messageService.getTitle(NotificationErrorCode.DUPLICATE_NOTIFICATION, locale),
+                    messageService.getMessage(NotificationErrorCode.DUPLICATE_NOTIFICATION, locale, request.getId()));
+        }
+    }
+
+    /**
+     * Hibernate has been observed to throw this bare, but jakarta.persistence.*
+     * wrappers are common enough across versions/paths that it's worth walking
+     * the cause chain rather than assuming a fixed exception shape.
+     */
+    private static ConstraintViolationException findConstraintViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException violation) {
+                return violation;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    /**
+     * SQLState 23505 is the reliable, dialect-standard signal for a unique
+     * violation; the constraint name is checked in addition, when available,
+     * so a future second unique constraint on this table doesn't get silently
+     * folded into "duplicate notification id".
+     */
+    private static boolean isDuplicateNotificationId(ConstraintViolationException violation) {
+        if (!UNIQUE_VIOLATION_SQLSTATE.equals(violation.getSQLState())) {
+            return false;
+        }
+        String constraintName = violation.getConstraintName();
+        return constraintName == null || NOTIFICATIONS_PK_CONSTRAINT.equals(constraintName);
     }
 }

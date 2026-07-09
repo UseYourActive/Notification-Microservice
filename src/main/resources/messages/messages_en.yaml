@@ -57,6 +57,8 @@ error:
       invalid-recipient: "Invalid Telegram recipient: %s"
       rate-limited: "Telegram rate limit exceeded. Try again in %d seconds"
 
+    duplicate: "A notification with id %s already exists"
+
   template:
     not-found: "Template '%s' not found for locale '%s'"
     render-error: "Failed to render template '%s': %s"
@@ -81,6 +83,7 @@ error:
     messaging-failed: "Messaging Failed"
     configuration-error: "Configuration Error"
     rate-limit-exceeded: "Rate Limit Exceeded"
+    duplicate-notification: "Duplicate Notification"
 
 success:
   notification:
