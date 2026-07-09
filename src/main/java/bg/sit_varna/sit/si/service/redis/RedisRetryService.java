@@ -17,12 +17,13 @@ public class RedisRetryService {
 
     private static final Logger LOG = Logger.getLogger(RedisRetryService.class);
     private static final String RETRY_KEY = "notifications:retry_queue";
-    @Inject Clock clock;
+    private final Clock clock;
     private final SortedSetCommands<String, Notification> zsetCommands;
 
     @Inject
-    public RedisRetryService(RedisDataSource dataSource) {
+    public RedisRetryService(RedisDataSource dataSource, Clock clock) {
         this.zsetCommands = dataSource.sortedSet(String.class, Notification.class);
+        this.clock = clock;
     }
 
     public void scheduleRetry(Notification notification, long delaySeconds) {

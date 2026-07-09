@@ -26,11 +26,14 @@ public final class TwilioSmsSender implements SmsSender {
     private static final Logger LOG = Logger.getLogger(TwilioSmsSender.class);
     private static final String TWILIO_API_URL_TEMPLATE = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json";
 
-    @Inject
-    TwilioConfig twilioConfig;
+    private final TwilioConfig twilioConfig;
+    private final MessageService messageService;
 
     @Inject
-    MessageService messageService;
+    public TwilioSmsSender(TwilioConfig twilioConfig, MessageService messageService) {
+        this.twilioConfig = twilioConfig;
+        this.messageService = messageService;
+    }
 
     public boolean isConfigured() {
         return twilioConfig.isConfigured();

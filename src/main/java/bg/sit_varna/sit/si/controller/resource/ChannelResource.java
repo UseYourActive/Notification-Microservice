@@ -5,6 +5,7 @@ import bg.sit_varna.sit.si.constant.NotificationChannel;
 import bg.sit_varna.sit.si.controller.api.ChannelApi;
 import bg.sit_varna.sit.si.controller.base.BaseResource;
 import bg.sit_varna.sit.si.dto.response.GetChannelsResponse;
+import bg.sit_varna.sit.si.service.webhook.WebhookHeaderResolver;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
@@ -19,11 +20,12 @@ public class ChannelResource extends BaseResource implements ChannelApi {
     private static final Logger LOG = Logger.getLogger(ChannelResource.class);
 
     @Inject
-    public ChannelResource(LocaleResolver localeResolver) {
-        super(localeResolver);
+    public ChannelResource(LocaleResolver localeResolver, WebhookHeaderResolver headerResolver) {
+        super(localeResolver, headerResolver);
     }
 
-    protected ChannelResource() {}
+    protected ChannelResource() {
+    }
 
     @Override
     protected Logger getLogger() {
