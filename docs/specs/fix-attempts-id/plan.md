@@ -49,17 +49,17 @@ Goals:
   without re-running `V1.0.0`–`V1.0.2` as real DDL against databases that
   already have that shape (via `baseline-on-migrate` + an explicit
   `baseline-version`).
+- End the dual schema ownership: once Flyway is real, `quarkus.hibernate-orm.
+  schema-management.strategy` flips from `update` to `validate` in every
+  profile. Flyway becomes the single source of truth for schema; Hibernate
+  only checks it agrees, it no longer silently patches it. Any drift
+  `validate` surfaces gets fixed with a migration, never by reverting to
+  `update` (see Design §1a for what this actually found).
 - `NotificationService.persistRecord()`'s duplicate-id case is handled
   atomically: a real DB constraint violation, caught and turned into a 409,
   not a check-then-act race.
 
 Non-goals:
-- Turning off `quarkus.hibernate-orm.schema-management.strategy=update`.
-  Two schema authorities (Flyway + Hibernate auto-DDL) coexisting is a
-  pre-existing architectural smell (the `# could be redundant` comment
-  already next to it agrees), but disabling it is a bigger, separately-risky
-  change that deserves its own mission and broader testing, not a rider on
-  this one. Flagged below under Risks.
 - Rewriting `DeduplicationService`'s Redis-based intake dedup (recipient +
   channel + content hash, TTL-based). Untouched — see Design for why it's a
   different mechanism from the one this mission fixes.
@@ -68,20 +68,51 @@ Non-goals:
 
 ## Design
 
-### 1. Flyway location + baseline (prerequisite, not its own migration)
+### 1. Flyway location + baseline + validate
 
 `application.properties`:
 ```
+quarkus.hibernate-orm.schema-management.strategy=validate
 quarkus.flyway.locations=classpath:db/migrations
+quarkus.flyway.baseline-on-migrate=true   (already set)
 quarkus.flyway.baseline-version=1.0.2
 ```
-`baseline-on-migrate=true` is already set. With an explicit baseline version,
-Flyway on a non-empty schema with no `flyway_schema_history` table (every
-real deployment today) baselines at `1.0.2` and applies only migrations
-numbered above it — `V1.0.0`–`V1.0.2` are recorded as already-done, never
-re-executed as DDL. On an empty schema (every fresh Testcontainers test run),
-baselining doesn't trigger; Flyway runs `V1.0.0` onward for real, which is
-exactly what lets us integration-test the real UUID→BIGINT conversion.
+
+**How deployed databases transition:** every real environment today has no
+`flyway_schema_history` table and a non-empty schema (built by Hibernate's
+old `update` auto-DDL). The first time this change deploys, `baseline-
+on-migrate=true` makes Flyway baseline that database at `1.0.2` instead of
+trying to replay `V1.0.0`–`V1.0.2` as DDL against tables that already exist
+— from that point on it only applies migrations numbered above the baseline
+(`V1.0.3`+), which is exactly the set written to be safe no-ops against a
+schema Hibernate already built correctly.
+
+On an empty schema (every fresh Testcontainers test run, or a genuinely new
+environment), baselining doesn't trigger — Flyway runs `V1.0.0` onward for
+real, which is what let this migration actually be integration-tested end
+to end (see tasks.md T1).
+
+**1a. Flipping `schema-management.strategy` to `validate` — what it found.**
+Per your amendment, I ran the full suite with `validate` on before writing
+anything else, to find real drift rather than guess at it. Two real bugs
+surfaced, both now fixed in `V1.0.3` (see §2) and confirmed by re-running
+`validate` clean afterward:
+- `notification_attempts.id` was `uuid`, expected `bigint` (the bug this
+  mission set out to fix).
+- The sequence backing it needs `INCREMENT BY 50`, not Postgres's default of
+  `1` — Hibernate's default `@GeneratedValue` allocation size (pooled
+  sequence optimizer: one `nextval()` round-trip reserves a block of 50 ids)
+  is 50, and `validate` checks a sequence's increment against what its
+  `@GeneratedValue` mapping expects, not just its existence.
+
+One additional finding did **not** cause `validate` to fail, so it's
+out of scope here, but worth flagging: `TemplateRecord` declares both a
+single-column `unique = true` on `template_name` *and* a table-level
+composite `@UniqueConstraint(columnNames = {"template_name", "locale"})` —
+the single-column one looks like an unintentional leftover that would wrongly
+forbid the same `template_name` across two locales. `validate` doesn't check
+unique constraints, only tables/columns/PKs/sequences, so this doesn't block
+the mission — but it's a real latent bug worth its own follow-up.
 
 ### 2. `V1.0.3__Fix_notification_attempts_id_type.sql`
 
@@ -109,22 +140,32 @@ a rolling deploy, and there are none here.
 transaction (Postgres DDL is transactional); the old PK constraint is only
 ever dropped and the new one added within that same transaction.
 
-**Identity/sequence wiring**, using `information_schema` checks so the
-migration is correct against both realities described above:
+**Identity/sequence wiring**, using `information_schema`/`pg_catalog` checks
+so the migration is correct against both realities described above:
 - If `id` is currently `uuid`: drop the PK, drop the old column, add a new
   `BIGINT` column.
-- `CREATE SEQUENCE IF NOT EXISTS notification_attempts_seq` (matches the
-  name Hibernate's default `GenerationType.AUTO` already picked, confirmed
-  empirically — reusing it rather than inventing a different name means
-  Hibernate's schema-management=update pass, which still runs after Flyway,
-  sees no drift and does nothing).
+- `CREATE SEQUENCE IF NOT EXISTS notification_attempts_seq INCREMENT BY 50`
+  (name and increment confirmed empirically against real Hibernate-created
+  output — see §1a — so `schema-management.strategy=validate`, which still
+  runs after Flyway on every boot, sees no drift and does nothing).
 - Backfill any null ids from the sequence, set `NOT NULL`, set
   `DEFAULT nextval(...)` (belt-and-suspenders; Panache doesn't rely on it but
   it protects any future non-Hibernate writer), `ALTER SEQUENCE ... OWNED BY`
-  for correct lifecycle/cleanup semantics, advance the sequence past
-  `MAX(id)`, and (re)add the `PRIMARY KEY` if not already present.
-- Every step is `IF EXISTS`/`IF NOT EXISTS`/conditional, so re-running it
-  against an already-correct (Hibernate-built) prod schema is a safe no-op.
+  for correct lifecycle/cleanup semantics, and (re)add the `PRIMARY KEY` if
+  not already present.
+- **Advancing the sequence is guarded, not unconditional.** An earlier draft
+  called `setval(seq, MAX(id))` unconditionally, which regresses an
+  already-in-use sequence backward — caught by the reconciliation test
+  (tasks.md T1) seeding a sequence ahead of `MAX(id)`, exactly like real
+  pooled-allocation/rollback-gap behavior. Fixed: only raise the sequence if
+  the table's real `MAX(id)` is *ahead* of the sequence's current
+  `last_value` (the fresh-DB branch, converting discarded-uuid rows onto a
+  brand-new sequence starting at 1); never lower it.
+- Every step is `IF EXISTS`/`IF NOT EXISTS`/conditional/advance-only, so
+  re-running the logic against an already-correct (Hibernate-built) prod
+  schema is a safe no-op — verified by
+  `NotificationAttemptsMigrationReconciliationTest`, which drives Flyway
+  directly against a hand-seeded "already Hibernate-built" schema.
 
 ### 3. Dedup guard — `NotificationService.persistRecord()`
 
@@ -149,12 +190,23 @@ support), the loser's bare `persist()` throws an unhandled
 `flush()` (forces the `INSERT` — and thus the constraint check — to happen
 synchronously inside the method, before the `REQUIRES_NEW` transaction
 commits; without it Hibernate may defer the insert to commit time, after the
-catch block has already been exited). Catch
-`org.hibernate.exception.ConstraintViolationException` and translate it to a
-new `DuplicateNotificationException` (subclass of the existing
-`NotificationException`, reusing the existing generic
-`NotificationExceptionHandler` mapper — no new mapper needed), mapped to
-**409** via a new `NotificationErrorCode.DUPLICATE_NOTIFICATION` /
+catch block has already been exited).
+
+**Unwrap defensively, match on constraint identity, not just exception
+type.** `flush()` can surface the violation either as a bare
+`org.hibernate.exception.ConstraintViolationException` or wrapped inside a
+`jakarta.persistence.PersistenceException` — catch `PersistenceException`,
+walk the `getCause()` chain for a `ConstraintViolationException`, and only
+treat it as a duplicate if it's *this* table's PK constraint
+(`notifications_pkey`) or SQLState `23505`, not any unique-constraint
+violation anywhere. Anything else rethrows unchanged. This is verified
+directly, not assumed: T2's test asserts on the real exception shape Hibernate
+actually throws for this table, not a guessed one.
+
+Translate a real match into a new `DuplicateNotificationException`
+(subclass of the existing `NotificationException`, reusing the existing
+generic `NotificationExceptionHandler` mapper — no new mapper needed),
+mapped to **409** via a new `NotificationErrorCode.DUPLICATE_NOTIFICATION` /
 `ErrorCategory.CONFLICT`, following the exact pattern `RateLimitException`
 already established. New i18n keys added to both
 `messages_en.yaml`/`messages_bg.yaml`, matching the existing key-naming
@@ -172,14 +224,21 @@ the constraint that already backs it.
 
 ## Risks & open questions
 
-- **Two schema authorities remain.** Flyway becomes real again, but
-  Hibernate's `schema-management.strategy=update` still runs after it on
-  every boot. As long as the two agree (which this migration is written to
-  guarantee for `notification_attempts`), this is a no-op overlap, not a
-  conflict — but it's fragile long-term and worth a dedicated follow-up
-  mission to pick one authority. Not addressed here (see Non-goals).
 - **Unverified assumption:** prod's real schema state was confirmed by you,
   not by direct inspection of the production database (I have no access to
   it). The migration is written defensively (idempotent, branches on actual
-  column type) specifically so it's still correct even if that assumption
-  turns out to be wrong for some environment.
+  column type, advance-only sequence) specifically so it's still correct even
+  if that assumption turns out to be wrong for some environment — and
+  `schema-management.strategy=validate` now means any environment where it
+  *is* wrong fails loudly at boot instead of silently drifting further.
+- **`TemplateRecord`'s overlapping unique constraints** (see Design §1a) are
+  real but out of scope — `validate` doesn't catch them, and fixing them
+  isn't part of either bug this mission was scoped to fix. Flagging for a
+  separate follow-up rather than silently leaving it undocumented.
+- **First-deploy risk on the `schema-management.strategy` flip is now
+  Flyway's, not Hibernate's.** Before this change, a bad entity mapping
+  would silently auto-patch the schema; now it fails startup via
+  `SchemaManagementException` instead. That's the intended trade (fail loud
+  beats silent drift), but it does mean this deploy is the first time schema
+  mismatches anywhere in the app become boot-blocking — worth calling out
+  explicitly during review/rollout, not just in this doc.

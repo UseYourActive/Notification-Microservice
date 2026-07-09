@@ -214,6 +214,16 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-flyway</artifactId>
         </dependency>
+        <!-- Needed for the plain org.flywaydb.core.Flyway API used by
+             NotificationAttemptsMigrationReconciliationTest - Quarkus's own
+             extension wiring registers this automatically, but a test that
+             drives Flyway directly (no Quarkus boot) needs it on the
+             classpath explicitly. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
