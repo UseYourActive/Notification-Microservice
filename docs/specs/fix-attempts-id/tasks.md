@@ -66,8 +66,12 @@
 
 ## After all tasks
 
-- Run the full test suite once more.
-- code-reviewer pass (java-engineering:code-reviewer) on the full diff
-  against `feature/durable-queue`.
-- Push `feature/fix-attempts-id`, report ready for PR review (base:
-  `feature/durable-queue`, not `master`).
+- [x] Run the full test suite once more (48 tests, green).
+- [x] code-reviewer pass (java-engineering:code-reviewer) on the full diff
+      against `feature/durable-queue` — one Major finding (null constraint
+      name wrongly treated as a match), one coverage gap (advance-only
+      setval's raise branch untested), two minor/nit items. Major + coverage
+      gap fixed and committed; the schema-qualification nit on the PK re-add
+      check was left as-is (informational only — see plan.md).
+- [ ] Push `feature/fix-attempts-id`, report ready for PR review (base:
+      `feature/durable-queue`, not `master`) — pending user confirmation.
