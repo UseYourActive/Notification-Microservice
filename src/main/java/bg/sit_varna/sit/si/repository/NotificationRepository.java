@@ -112,9 +112,6 @@ public class NotificationRepository implements PanacheRepositoryBase<Notificatio
         return results;
     }
 
-    public record ClaimResult(NotificationRecord notification, boolean reaped) {
-    }
-
     /**
      * Cold-queue resurrection: flips a row back to QUEUED so the poller claims it
      * through the normal claimBatch() path, unless it has already exhausted

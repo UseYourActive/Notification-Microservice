@@ -102,8 +102,8 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
         });
 
         CyclicBarrier barrier = new CyclicBarrier(2);
-        List<NotificationRepository.ClaimResult> claimedByWorker1 = Collections.synchronizedList(new ArrayList<>());
-        List<NotificationRepository.ClaimResult> claimedByWorker2 = Collections.synchronizedList(new ArrayList<>());
+        List<ClaimResult> claimedByWorker1 = Collections.synchronizedList(new ArrayList<>());
+        List<ClaimResult> claimedByWorker2 = Collections.synchronizedList(new ArrayList<>());
 
         Runnable claimTask1 = () -> {
             awaitBarrier(barrier);
@@ -152,10 +152,10 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
             notificationRepository.persist(record);
         });
 
-        List<NotificationRepository.ClaimResult> claimed = QuarkusTransaction.requiringNew().call(() ->
+        List<ClaimResult> claimed = QuarkusTransaction.requiringNew().call(() ->
                 notificationRepository.claimBatch(10, "worker-reaper", 60));
 
-        NotificationRepository.ClaimResult result = claimed.stream()
+        ClaimResult result = claimed.stream()
                 .filter(r -> r.notification().getId().equals(id))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Expired PROCESSING row was not reclaimed"));
@@ -178,7 +178,7 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
             notificationRepository.persist(record);
         });
 
-        List<NotificationRepository.ClaimResult> claimed = QuarkusTransaction.requiringNew().call(() ->
+        List<ClaimResult> claimed = QuarkusTransaction.requiringNew().call(() ->
                 notificationRepository.claimBatch(10, "worker-reaper", 60));
 
         Assertions.assertTrue(claimed.stream().noneMatch(r -> r.notification().getId().equals(id)),

@@ -3,6 +3,7 @@ package bg.sit_varna.sit.si.service.async;
 import bg.sit_varna.sit.si.config.queue.QueueConfig;
 import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.repository.ClaimResult;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.annotation.PreDestroy;
@@ -72,14 +73,14 @@ public class QueuePoller {
         }
 
         int limit = Math.min(available, queueConfig.batchSize());
-        List<NotificationRepository.ClaimResult> claimed = notificationRepository.claimBatch(
+        List<ClaimResult> claimed = notificationRepository.claimBatch(
                 limit, instanceId, queueConfig.visibilityTimeout().toSeconds());
 
-        int reapedCount = (int) claimed.stream().filter(NotificationRepository.ClaimResult::reaped).count();
+        int reapedCount = (int) claimed.stream().filter(ClaimResult::reaped).count();
         queueMetricsService.recordClaimed(claimed.size());
         queueMetricsService.recordReaped(reapedCount);
 
-        for (NotificationRepository.ClaimResult result : claimed) {
+        for (ClaimResult result : claimed) {
             dispatch(result);
         }
     }
@@ -115,7 +116,7 @@ public class QueuePoller {
         dispatchExecutor.shutdown();
     }
 
-    private void dispatch(NotificationRepository.ClaimResult result) {
+    private void dispatch(ClaimResult result) {
         try {
             concurrencySlots.acquire();
         } catch (InterruptedException e) {

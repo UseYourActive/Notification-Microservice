@@ -4,6 +4,7 @@ import bg.sit_varna.sit.si.config.queue.QueueConfig;
 import bg.sit_varna.sit.si.constant.NotificationChannel;
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.repository.ClaimResult;
 import bg.sit_varna.sit.si.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,7 +115,7 @@ public class QueuePollerShutdownTest {
                 .claimBatch(anyInt(), anyString(), anyLong());
     }
 
-    private static NotificationRepository.ClaimResult claimResult() {
+    private static ClaimResult claimResult() {
         NotificationRecord record = new NotificationRecord();
         record.setId(UUID.randomUUID().toString());
         record.setRecipient("shutdown-test@example.com");
@@ -122,6 +123,6 @@ public class QueuePollerShutdownTest {
         record.setStatus(NotificationStatus.PROCESSING);
         record.setMessage("Hello");
         record.setLocale("en");
-        return new NotificationRepository.ClaimResult(record, false);
+        return new ClaimResult(record, false);
     }
 }
