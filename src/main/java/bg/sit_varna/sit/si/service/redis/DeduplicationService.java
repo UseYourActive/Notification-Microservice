@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.function.Supplier;
 
 @ApplicationScoped
 public class DeduplicationService {
@@ -31,11 +32,7 @@ public class DeduplicationService {
     }
 
     public boolean isDuplicate(String recipient, NotificationChannel channel, String content) {
-        if (!redisConfig.deduplication().enabled()) {
-            return false;
-        }
-
-        try {
+        return guarded(() -> {
             String key = buildDeduplicationKey(recipient, channel, content);
 
             // Check if key exists (notification was recently sent)
@@ -52,11 +49,52 @@ public class DeduplicationService {
 
             LOG.debugf("Notification marked as sent: %s via %s", recipient, channel);
             return false;
+        }, false, "Error checking deduplication (allowing notification)");
+    }
 
-        } catch (Exception e) {
-            LOG.warnf(e, "Error checking deduplication (allowing notification)");
-            return false;
+    /**
+     * Send-time guard, keyed by notification ID rather than content hash. Checked
+     * immediately before the actual channel-strategy send(); markSent() must only be
+     * called after send() returns successfully, never before, so a failed attempt
+     * remains retryable. This is a second, narrower guard than isDuplicate() (which
+     * only runs once at intake) - it protects against the same notification being
+     * sent twice for real when a reaper reclaims a row that wasn't actually dead.
+     */
+    public boolean isAlreadySent(String notificationId) {
+        return guarded(() -> valueCommands.get(buildSendGuardKey(notificationId)) != null,
+                false, "Error checking send-once guard (allowing send)");
+    }
+
+    public void markSent(String notificationId) {
+        guarded(() -> {
+            String key = buildSendGuardKey(notificationId);
+            valueCommands.set(key, "sent");
+            keyCommands.expire(key, redisConfig.deduplication().ttl());
+            return null;
+        }, null, "Error marking send-once guard");
+    }
+
+    /**
+     * Runs {@code action} only when deduplication is enabled, swallowing any
+     * exception and falling back to {@code fallback} (fail-open, so a Redis outage
+     * never blocks notification delivery). Both the enabled-check and the
+     * try/catch-and-log scaffolding were previously duplicated across all three
+     * public methods above.
+     */
+    private <T> T guarded(Supplier<T> action, T fallback, String errorMessage) {
+        if (!redisConfig.deduplication().enabled()) {
+            return fallback;
         }
+        try {
+            return action.get();
+        } catch (Exception e) {
+            LOG.warnf(e, errorMessage);
+            return fallback;
+        }
+    }
+
+    private String buildSendGuardKey(String notificationId) {
+        return "dedup:send-guard:" + notificationId;
     }
 
     private String buildDeduplicationKey(String recipient, NotificationChannel channel, String content) {

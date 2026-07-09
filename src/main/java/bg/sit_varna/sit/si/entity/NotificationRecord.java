@@ -12,6 +12,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Entity
@@ -35,6 +36,10 @@ public class NotificationRecord extends PanacheEntityBase {
     @Column(name = "template_name")
     private String templateName;
 
+    private Locale locale;
+
+    private String message;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationStatus status;
@@ -50,6 +55,15 @@ public class NotificationRecord extends PanacheEntityBase {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "locked_by")
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    @Column(name = "attempts_count", nullable = false)
+    private int attemptsCount;
 
     @OneToMany(mappedBy = "notification", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<NotificationAttempt> attempts = new ArrayList<>();
@@ -84,6 +98,22 @@ public class NotificationRecord extends PanacheEntityBase {
 
     public void setTemplateName(String templateName) {
         this.templateName = templateName;
+    }
+
+    public Locale getLocale() {
+        return locale;
+    }
+
+    public void setLocale(Locale locale) {
+        this.locale = locale;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public NotificationStatus getStatus() {
@@ -124,5 +154,29 @@ public class NotificationRecord extends PanacheEntityBase {
 
     public void setAttempts(List<NotificationAttempt> attempts) {
         this.attempts = attempts;
+    }
+
+    public String getLockedBy() {
+        return lockedBy;
+    }
+
+    public void setLockedBy(String lockedBy) {
+        this.lockedBy = lockedBy;
+    }
+
+    public LocalDateTime getLockedAt() {
+        return lockedAt;
+    }
+
+    public void setLockedAt(LocalDateTime lockedAt) {
+        this.lockedAt = lockedAt;
+    }
+
+    public int getAttemptsCount() {
+        return attemptsCount;
+    }
+
+    public void setAttemptsCount(int attemptsCount) {
+        this.attemptsCount = attemptsCount;
     }
 }

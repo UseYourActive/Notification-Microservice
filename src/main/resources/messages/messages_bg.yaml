@@ -57,6 +57,8 @@ error:
       invalid-recipient: "Невалиден Telegram получател: %s"
       rate-limited: "Превишен лимит за Telegram. Опитайте отново след %d секунди"
 
+    duplicate: "Известие с id %s вече съществува"
+
   template:
     not-found: "Шаблон '%s' не е намерен за език '%s'"
     render-error: "Неуспешно рендериране на шаблон '%s': %s"
@@ -81,6 +83,7 @@ error:
     messaging-failed: "Неуспешно съобщение"
     configuration-error: "Грешка в конфигурацията"
     rate-limit-exceeded: "Превишен лимит"
+    duplicate-notification: "Дублирано известие"
 
 success:
   notification:

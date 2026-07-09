@@ -6,35 +6,58 @@ import bg.sit_varna.sit.si.dto.model.Notification;
 import bg.sit_varna.sit.si.service.channel.strategies.ChannelStrategy;
 import bg.sit_varna.sit.si.service.channel.strategies.ChannelStrategyFactory;
 import bg.sit_varna.sit.si.service.core.NotificationStateService;
+import bg.sit_varna.sit.si.service.redis.DeduplicationService;
 import bg.sit_varna.sit.si.service.redis.MetricsService;
 import bg.sit_varna.sit.si.service.redis.RedisRetryService;
 import bg.sit_varna.sit.si.template.core.TemplateService;
 import io.smallrye.common.annotation.RunOnVirtualThread;
-import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.faulttolerance.Fallback;
 import org.eclipse.microprofile.faulttolerance.Retry;
-import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
+/**
+ * Called directly by QueuePoller (one call per claimed row) - never invoke
+ * processNotification via self-invocation (this.processNotification(...)); it must
+ * go through the injected CDI bean so the @Retry/@Fallback interceptors apply.
+ * Graceful shutdown (stop claiming + drain in-flight work) is owned by QueuePoller,
+ * which tracks in-flight work at the dispatch boundary - not here, since @Retry
+ * re-invokes this method once per attempt and an in-flight counter local to this
+ * method would read zero during the sleep between attempts.
+ */
 @ApplicationScoped
 public class NotificationProcessor {
 
     private static final Logger LOG = Logger.getLogger(NotificationProcessor.class);
 
-    private volatile boolean shuttingDown = false;
+    private final ApplicationConfig applicationConfig;
+    private final RedisRetryService redisRetryService;
+    private final TemplateService templateService;
+    private final MetricsService metricsService;
+    private final ChannelStrategyFactory channelStrategyFactory;
+    private final NotificationStateService stateService;
+    private final DeduplicationService deduplicationService;
 
-    @Inject ApplicationConfig applicationConfig;
-    @Inject RedisRetryService redisRetryService;
-    @Inject TemplateService templateService;
-    @Inject MetricsService metricsService;
-    @Inject ChannelStrategyFactory channelStrategyFactory;
-    @Inject NotificationStateService stateService;
+    @Inject
+    public NotificationProcessor(ApplicationConfig applicationConfig,
+                                  RedisRetryService redisRetryService,
+                                  TemplateService templateService,
+                                  MetricsService metricsService,
+                                  ChannelStrategyFactory channelStrategyFactory,
+                                  NotificationStateService stateService,
+                                  DeduplicationService deduplicationService) {
+        this.applicationConfig = applicationConfig;
+        this.redisRetryService = redisRetryService;
+        this.templateService = templateService;
+        this.metricsService = metricsService;
+        this.channelStrategyFactory = channelStrategyFactory;
+        this.stateService = stateService;
+        this.deduplicationService = deduplicationService;
+    }
 
-    @Incoming("notification-queue")
     @RunOnVirtualThread
     @ActivateRequestContext
     @Retry // Layer 1: Fast in-memory retry (configured in application.properties)
@@ -44,9 +67,10 @@ public class NotificationProcessor {
                 notification.getId(), notification.getRecipient(), notification.getChannel());
         MDC.put("notificationId", notification.getId());
 
-        if (shuttingDown) {
-            LOG.warn("App is shutting down. Skipping notification: " + notification.getId());
-            return; // Stop immediately
+        if (deduplicationService.isAlreadySent(notification.getId())) {
+            LOG.warnf("Notification %s was already sent - skipping duplicate send " +
+                    "(likely a reaper reclaim of a row that wasn't actually dead)", notification.getId());
+            return;
         }
 
         try {
@@ -59,6 +83,10 @@ public class NotificationProcessor {
                             "No strategy configured for channel: " + notification.getChannel()));
 
             strategy.send(notification);
+            // Mark the send-guard only after send() succeeds - never before - so a
+            // failed attempt (this one throws below to @Retry/@Fallback) remains
+            // retryable instead of being permanently blocked by its own guard.
+            deduplicationService.markSent(notification.getId());
 
             stateService.updateStatus(
                     notification.getId(),
@@ -72,9 +100,12 @@ public class NotificationProcessor {
             LOG.infof("Async processing completed for: %s", notification.getRecipient());
         } catch (Exception e) {
             LOG.error("Failed to process notification", e);
-            if (!shuttingDown) {
-                stateService.updateStatus(notification.getId(), NotificationStatus.FAILED, e.getMessage(), null);
-            }
+            // Record the attempt but leave status as PROCESSING - @Retry re-invokes
+            // this method for the next attempt, so writing FAILED here would look
+            // terminal to claimBatch()'s reaper (which only reclaims QUEUED/stale-
+            // PROCESSING rows) and strand the row forever if the process crashes
+            // during the retry backoff. Only fallbackToRedis() writes a real FAILED.
+            stateService.recordAttemptFailure(notification.getId(), e.getMessage(), null);
             throw e;
         } finally {
             MDC.remove("notificationId");
@@ -98,6 +129,7 @@ public class NotificationProcessor {
                     "Immediate retries exhausted. Moved to Redis queue.",
                     null
             );
+            stateService.recordColdQueueCycle(notification.getId());
 
             metricsService.recordNotification(notification.getChannel(), NotificationStatus.FAILED);
 
@@ -106,11 +138,6 @@ public class NotificationProcessor {
         } finally {
             MDC.remove("notificationId");
         }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        this.shuttingDown = true;
     }
 
     private String processContent(Notification request) {

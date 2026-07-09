@@ -21,8 +21,12 @@ public class TemplateScanner {
     private static final Logger LOG = Logger.getLogger(TemplateScanner.class);
     private static final String TEMPLATES_PATH = "templates";
 
+    private final MessageService messageService;
+
     @Inject
-    MessageService messageService;
+    public TemplateScanner(MessageService messageService) {
+        this.messageService = messageService;
+    }
 
     public List<String> scanTemplateFiles() {
         URI uri = getResourceURI();
