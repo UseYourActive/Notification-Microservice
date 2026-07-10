@@ -1,3 +1,22 @@
+# =============================================================================
+# LOCAL / DEMO ONLY — NOT A PRODUCTION MANIFEST
+#
+# This file backs `scripts/deploy-k8s.ps1`'s "Local Enterprise Sim" (see
+# README.md), for exercising the app under Kubernetes on Docker Desktop.
+#
+# Neither the Redis nor the Postgres Deployment below has a
+# PersistentVolumeClaim: a pod reschedule, node drain, or rolling restart
+# loses all data, and `scripts/teardown-k8s.ps1` deletes this stack outright
+# as part of routine cleanup. This is intentional, not an oversight — this
+# repo's actual "prod" path (`scripts/deploy-prod.ps1` -> docker-compose)
+# already has durable Postgres storage via docker-compose.yaml's
+# `postgres-data` named volume, independently of this file.
+#
+# If this ever needs to become a real durable deployment, that means adding a
+# PersistentVolumeClaim, converting Postgres to a StatefulSet with
+# volumeClaimTemplates, and updating teardown-k8s.ps1 to no longer blanket-
+# delete the data volume — none of that has been done here.
+# =============================================================================
 ---
 # 1. Redis Service
 apiVersion: v1
