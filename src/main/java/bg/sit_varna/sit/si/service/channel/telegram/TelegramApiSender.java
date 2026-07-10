@@ -27,7 +27,6 @@ import java.util.Map;
 public class TelegramApiSender {
 
     private static final Logger LOG = Logger.getLogger(TelegramApiSender.class);
-    private static final String TELEGRAM_API_BASE = "https://api.telegram.org/bot";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final TelegramConfig telegramConfig;
@@ -306,7 +305,7 @@ public class TelegramApiSender {
     }
 
     private JsonNode executeApiCall(String method, Map<String, Object> requestBody) throws Exception {
-        String url = TELEGRAM_API_BASE + telegramConfig.botToken() + "/" + method;
+        String url = telegramConfig.apiBaseUrl() + telegramConfig.botToken() + "/" + method;
 
         try (Client client = createHttpClient()) {
             Response response = client.target(url)

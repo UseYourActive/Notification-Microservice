@@ -4,6 +4,7 @@ import bg.sit_varna.sit.si.config.channel.SendGridConfig;
 import bg.sit_varna.sit.si.constant.NotificationErrorCode;
 import bg.sit_varna.sit.si.exception.exceptions.EmailSendException;
 import bg.sit_varna.sit.si.service.core.MessageService;
+import com.sendgrid.Client;
 import com.sendgrid.Method;
 import com.sendgrid.Request;
 import com.sendgrid.Response;
@@ -58,7 +59,7 @@ public class SendGridEmailSender implements EmailSender {
         LOG.debugf("Preparing SendGrid request for: %s", to);
 
         try {
-            SendGrid sendGrid = new SendGrid(sendGridConfig.apiKey());
+            SendGrid sendGrid = buildClient();
             Mail mail = buildMail(to, subject, content, ccList, bccList, metadata);
 
             Request request = new Request();
@@ -90,6 +91,16 @@ public class SendGridEmailSender implements EmailSender {
                     e
             );
         }
+    }
+
+    private SendGrid buildClient() {
+        return sendGridConfig.apiBaseUrl()
+                .map(baseUrl -> {
+                    SendGrid client = new SendGrid(sendGridConfig.apiKey(), new Client(true));
+                    client.setHost(baseUrl);
+                    return client;
+                })
+                .orElseGet(() -> new SendGrid(sendGridConfig.apiKey()));
     }
 
     private Mail buildMail(String to, String subject, String content, List<String> ccList, List<String> bccList, Map<String, String> metadata) {

@@ -16,6 +16,12 @@ public interface SendGridConfig {
 
     Optional<String> webhookPublicKey();
 
+    /**
+     * Overrides the SendGrid API host for testing (format: "host[:port]", no scheme —
+     * matches the SDK's own {@code Client#buildUri} contract). Unset in production.
+     */
+    Optional<String> apiBaseUrl();
+
     default String fromName() {
         return "Notification Service";
     }

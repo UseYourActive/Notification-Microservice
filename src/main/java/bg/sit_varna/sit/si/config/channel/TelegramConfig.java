@@ -15,6 +15,10 @@ public interface TelegramConfig {
     @WithDefault("")
     String botToken();
 
+    @WithName("api.base-url")
+    @WithDefault("https://api.telegram.org/bot")
+    String apiBaseUrl();
+
     @WithName("bot.username")
     @WithDefault("")
     String botUsername();

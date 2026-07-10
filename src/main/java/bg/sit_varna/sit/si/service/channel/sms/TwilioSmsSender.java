@@ -24,7 +24,7 @@ import java.util.Locale;
 public final class TwilioSmsSender implements SmsSender {
 
     private static final Logger LOG = Logger.getLogger(TwilioSmsSender.class);
-    private static final String TWILIO_API_URL_TEMPLATE = "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json";
+    private static final String TWILIO_API_PATH_TEMPLATE = "/2010-04-01/Accounts/%s/Messages.json";
 
     private final TwilioConfig twilioConfig;
     private final MessageService messageService;
@@ -46,7 +46,7 @@ public final class TwilioSmsSender implements SmsSender {
         LOG.infof("Sending SMS via Twilio to: %s", recipient);
 
         try (Client client = ClientBuilder.newClient()) {
-            String url = String.format(TWILIO_API_URL_TEMPLATE, twilioConfig.accountSid());
+            String url = twilioConfig.apiBaseUrl() + String.format(TWILIO_API_PATH_TEMPLATE, twilioConfig.accountSid());
             String authorization = buildAuthorizationHeader();
 
             Form form = new Form();
