@@ -19,6 +19,10 @@ public interface TwilioConfig {
     @WithDefault("")
     String phoneNumber();
 
+    @WithName("api.base-url")
+    @WithDefault("https://api.twilio.com")
+    String apiBaseUrl();
+
     default boolean isConfigured() {
         return !accountSid().isEmpty() &&
                 !authToken().isEmpty() &&
