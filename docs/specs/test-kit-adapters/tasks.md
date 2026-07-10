@@ -13,7 +13,10 @@
 
 - [ ] T3: Create `testkit.base.DatabaseTestBase` (reuses `TestResources`, adds
   truncate-between-tests) — files: `testkit/base/DatabaseTestBase.java` — done when: a
-  throwaway smoke test extending it shows no row leakage across two test methods.
+  throwaway smoke test extending it shows no row leakage across two test methods. Truncation
+  must respect the `notification_attempts` → `notifications` FK order (delete attempts
+  first, or use a single `TRUNCATE ... CASCADE`); the smoke test must cover a run where
+  both tables have rows to catch an FK-order regression.
 
 - [ ] T4: Create `testkit.wiremock.WireMockLifecycleManager` + `WireMockTestBase` (shared
   WireMock instance, config overrides for the T2 base-URL properties, `resetAll()` per test)
@@ -45,7 +48,9 @@
   `service/channel/telegram/TelegramApiSenderIntegrationTest.java` — done when: it covers
   the success path (asserts the real request body/headers WireMock received), and provider
   error paths (400/403/429/5xx) each asserting the specific `TelegramSendException` +
-  `NotificationErrorCode` thrown.
+  `NotificationErrorCode` thrown. Use an obviously-fake bot token (e.g. `000000:TEST-TOKEN`)
+  — it's a URL path segment, so it will appear in WireMock stub definitions and failure
+  logs; must be unmistakably not a real secret.
 
 - [ ] T9: SMS (Twilio) sender integration test against WireMock — files:
   `service/channel/sms/TwilioSmsSenderIntegrationTest.java` — done when: it covers the
