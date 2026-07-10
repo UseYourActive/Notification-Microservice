@@ -130,17 +130,27 @@ directly) would assert only that a mock was called, not the real request shape.
 
 ### Coverage measurement
 
-`mvn verify` regenerates `target/jacoco-report/jacoco.xml`. Before-numbers are already
-captured from the current build (see table below, pulled during investigation). After-numbers
-are re-extracted from the same file post-implementation, per touched package.
+`mvn verify` regenerates `target/jacoco-report/jacoco.xml`. Before-numbers were captured
+from the pre-implementation build during investigation; after-numbers are re-extracted
+from the same file post-implementation (T15), per touched package.
 
-| Package | Branch coverage today |
-|---|---|
-| `service.channel.telegram` | 0% |
-| `service.channel.sms` | 0% |
-| `service.channel.email` | 34.4% |
-| `controller.resource` | 0% |
-| `template.loading` | 0% |
+| Package | Branch before | Branch after | Line before | Line after |
+|---|---|---|---|---|
+| `service.channel.telegram` | 0% | 43.6% | 1.2% | 39.8% |
+| `service.channel.sms` | 0% | 50.0% | 1.7% | 59.3% |
+| `service.channel.email` | 34.4% | 56.2% | 54.3% | 69.0% |
+| `controller.resource` | 0% | 69.2% | 32.7% | 90.4% |
+| `template.loading` | 0% | 81.2% | 0% | 67.3% |
+
+Remaining gaps, not chased further because they fall outside this spec's scope or hit a
+genuinely uncoverable branch (see test-architecture skill's guidance on the uncoverable):
+- `service.channel.telegram`/`sms`: the `sendPhoto`/`sendDocument`/`editMessageText`/
+  `deleteMessage`/`sendChatAction`/`getMe` Telegram methods and the dispatch-layer
+  `TelegramNotificationStrategy`/`SmsNotificationStrategy` classes were out of scope (this
+  spec covers the senders' primary send path, not every method or the callers above them).
+- `TemplateScanner`'s IO/URI-exception branches need an unreachable classpath resource or
+  a filesystem fault, neither reachable without an injectable resource root (a production
+  change out of scope here); documented inline in `TemplateScannerTest`.
 
 ## Risks & open questions
 
