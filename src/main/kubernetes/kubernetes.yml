@@ -5,6 +5,10 @@ metadata:
 spec:
   template:
     spec:
+      # Must exceed quarkus.shutdown.timeout (application.properties, currently 30s)
+      # so the kubelet's SIGKILL can never race Quarkus's own drain window during
+      # a rolling deploy. Keep this above SHUTDOWN_TIMEOUT + a safety margin.
+      terminationGracePeriodSeconds: 45
       containers:
         - name: notification-service
           envFrom:
