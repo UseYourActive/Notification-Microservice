@@ -37,4 +37,43 @@ class TemplatePathResolverTest {
             resolver.resolve(null, "en");
         });
     }
+
+    @Test
+    void testResolve_ThrowsOnBlankTemplateName() {
+        Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            resolver.resolve("   ", "en");
+        });
+    }
+
+    @Test
+    void testResolve_FallbackToDefaultLocaleWhenLocaleBlank() {
+        String result = resolver.resolve("email/welcome", "   ");
+        Assertions.assertEquals("email/welcome_en.html", result);
+    }
+
+    @Test
+    void testResolve_ThrowsOnMissingSlashSeparator() {
+        IllegalArgumentException exception = Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            resolver.resolve("welcome", "en");
+        });
+        Assertions.assertEquals("Invalid template name format", exception.getMessage());
+    }
+
+    @Test
+    void testResolve_FallsBackToHtmlExtensionForUnknownChannel() {
+        String result = resolver.resolve("unknown/welcome", "en");
+        Assertions.assertEquals("unknown/welcome_en.html", result);
+    }
+
+    @Test
+    void testResolve_SmsChannelResolvesToTxtExtension() {
+        String result = resolver.resolve("sms/otp", "en");
+        Assertions.assertEquals("sms/otp_en.txt", result);
+    }
+
+    @Test
+    void testResolve_TelegramChannelResolvesToTxtExtension() {
+        String result = resolver.resolve("telegram/otp", "en");
+        Assertions.assertEquals("telegram/otp_en.txt", result);
+    }
 }
