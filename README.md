@@ -306,6 +306,13 @@ Compiles a native binary inside a Docker container (no local GraalVM needed) and
 
 Deploys the entire stack to your local Kubernetes cluster, including Secrets management, Infrastructure (Redis/Postgres), and Ingress via Ngrok.
 
+> **This is a local demo of running under Kubernetes, not a production deployment.**
+> `k8s-infra.yaml`'s Redis and Postgres Deployments have no persistent storage —
+> `teardown-k8s.ps1` deletes the whole stack routinely, and a pod reschedule loses
+> all data. Durable Postgres storage lives in `docker-compose.yaml`'s `postgres-data`
+> volume, used by **Production Mode (Native)** below — that's this repo's actual
+> durable-storage path, not this Kubernetes stack.
+
 ```powershell
 # 1. Deploy everything (Infra + App + Secrets)
 .\scripts\deploy-k8s.ps1
