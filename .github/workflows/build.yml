@@ -96,3 +96,33 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  native-build-test:
+    name: 🏎️ Native Build & Test (parity check)
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    # Dev runs the JVM jar; deploy-prod.ps1 runs a GraalVM native image, so
+    # native-only bugs (reflection/class-init issues) only ever surfaced via
+    # deploy-prod.ps1 locally. This job closes that dev/prod parity gap.
+    # Master-only (not every PR, not weekly): the repo is public, so runner
+    # minutes are unlimited/free, and master-only gives a fast post-merge
+    # signal without slowing every PR's feedback loop with a ~10 min build.
+    # Deliberately does NOT gate `release` — see build.yml `release` job.
+    steps:
+      - name: 📥 Checkout source
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: 🔧 Grant execute permission for mvnw
+        run: chmod +x mvnw
+
+      - name: 🏎️ Native build & verify
+        run: ./mvnw verify -Pnative -Dquarkus.native.container-build=true
