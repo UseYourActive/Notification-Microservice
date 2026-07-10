@@ -1,11 +1,10 @@
 package bg.sit_varna.sit.si.api;
 
-import bg.sit_varna.sit.si.BaseIntegrationTest;
 import bg.sit_varna.sit.si.constant.NotificationChannel;
-import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.dto.request.SendNotificationRequest;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
 import bg.sit_varna.sit.si.service.core.NotificationService;
+import bg.sit_varna.sit.si.testkit.base.ApiTestBase;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
@@ -15,21 +14,20 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static io.restassured.RestAssured.given;
+import static bg.sit_varna.sit.si.testkit.assertions.ErrorResponseAssert.assertThatError;
+import static bg.sit_varna.sit.si.testkit.mother.NotificationRecordMother.aNotification;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 
 @QuarkusTest
-public class NotificationResourceTest extends BaseIntegrationTest {
+public class NotificationResourceTest extends ApiTestBase {
 
     @InjectMock
     NotificationService notificationService;
 
     @Test
     void testSendEndpoint_ValidationFailure() {
-        // Test Invalid Email
         SendNotificationRequest request = new SendNotificationRequest(
                 NotificationChannel.EMAIL,
                 "bad-email",
@@ -38,15 +36,16 @@ public class NotificationResourceTest extends BaseIntegrationTest {
                 Map.of()
         );
 
-        given()
-                .contentType("application/json")
+        var response = apiRequest()
                 .body(request)
                 .when()
                 .post("/api/v1/notifications/send")
-                .then()
-                .statusCode(400)
-                .body("code", equalTo("VALIDATION_FAILED"))
-                .body("details[0]", containsString("recipient"));
+                .thenReturn();
+
+        assertThatError(response)
+                .hasStatus(400)
+                .hasCode("VALIDATION_FAILED")
+                .hasDetailContaining("recipient");
     }
 
     @Test
@@ -61,8 +60,7 @@ public class NotificationResourceTest extends BaseIntegrationTest {
                 Map.of("name", "Test")
         );
 
-        given()
-                .contentType("application/json")
+        apiRequest()
                 .body(request)
                 .when()
                 .post("/api/v1/notifications/send")
@@ -73,12 +71,13 @@ public class NotificationResourceTest extends BaseIntegrationTest {
 
     @Test
     void testListFailedNotifications_ReturnsPagedResults() {
-        NotificationRecord record = new NotificationRecord();
-        record.setId("550e8400-e29b-41d4-a716-446655440000");
-        record.setRecipient("failed@example.com");
-        record.setChannel(NotificationChannel.EMAIL);
-        record.setTemplateName("email/welcome");
-        record.setStatus(NotificationStatus.FAILED);
+        NotificationRecord record = aNotification()
+                .withId("550e8400-e29b-41d4-a716-446655440000")
+                .withRecipient("failed@example.com")
+                .withChannel(NotificationChannel.EMAIL)
+                .withTemplateName("email/welcome")
+                .failed()
+                .build();
         record.setCreatedAt(LocalDateTime.now());
         record.setUpdatedAt(LocalDateTime.now());
 
@@ -87,7 +86,7 @@ public class NotificationResourceTest extends BaseIntegrationTest {
         Mockito.when(notificationService.countFailedNotifications())
                 .thenReturn(1L);
 
-        given()
+        apiRequest()
                 .queryParam("page", 0)
                 .queryParam("size", 20)
                 .when()
@@ -109,7 +108,7 @@ public class NotificationResourceTest extends BaseIntegrationTest {
         Mockito.when(notificationService.countFailedNotifications())
                 .thenReturn(0L);
 
-        given()
+        apiRequest()
                 .queryParam("size", 500)
                 .when()
                 .get("/api/v1/notifications/failed")

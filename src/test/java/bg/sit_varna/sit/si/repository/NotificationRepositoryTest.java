@@ -1,9 +1,9 @@
 package bg.sit_varna.sit.si.repository;
 
-import bg.sit_varna.sit.si.BaseIntegrationTest;
 import bg.sit_varna.sit.si.constant.NotificationChannel;
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import bg.sit_varna.sit.si.testkit.base.DatabaseTestBase;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Page;
 import io.quarkus.test.junit.QuarkusTest;
@@ -16,14 +16,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.stream.Collectors;
 
+import static bg.sit_varna.sit.si.testkit.mother.NotificationRecordMother.aNotification;
+
 @QuarkusTest
-public class NotificationRepositoryTest extends BaseIntegrationTest {
+public class NotificationRepositoryTest extends DatabaseTestBase {
 
     @Inject
     NotificationRepository notificationRepository;
@@ -31,17 +32,15 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void testPersistAndFind() {
-        String id = UUID.randomUUID().toString();
-        NotificationRecord record = new NotificationRecord();
-        record.setId(id);
-        record.setRecipient("repo-test@example.com");
-        record.setChannel(NotificationChannel.EMAIL);
-        record.setStatus(NotificationStatus.QUEUED);
-        record.setPayload(Map.of("key", "value"));
+        NotificationRecord record = aNotification()
+                .withRecipient("repo-test@example.com")
+                .withChannel(NotificationChannel.EMAIL)
+                .queued()
+                .build();
 
         notificationRepository.persist(record);
 
-        NotificationRecord found = notificationRepository.findById(id);
+        NotificationRecord found = notificationRepository.findById(record.getId());
         Assertions.assertNotNull(found);
         Assertions.assertEquals("repo-test@example.com", found.getRecipient());
         Assertions.assertEquals(NotificationStatus.QUEUED, found.getStatus());
@@ -50,11 +49,11 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void testFindByStatus() {
-        NotificationRecord record = new NotificationRecord();
-        record.setId(UUID.randomUUID().toString());
-        record.setRecipient("status-test@example.com");
-        record.setChannel(NotificationChannel.SMS);
-        record.setStatus(NotificationStatus.FAILED);
+        NotificationRecord record = aNotification()
+                .withRecipient("status-test@example.com")
+                .withChannel(NotificationChannel.SMS)
+                .failed()
+                .build();
         notificationRepository.persist(record);
 
         List<NotificationRecord> failed = notificationRepository.findByStatus(NotificationStatus.FAILED);
@@ -67,11 +66,11 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
     @Transactional
     void testFindByStatusPaged() {
         for (int i = 0; i < 3; i++) {
-            NotificationRecord record = new NotificationRecord();
-            record.setId(UUID.randomUUID().toString());
-            record.setRecipient("paged-test-" + i + "@example.com");
-            record.setChannel(NotificationChannel.EMAIL);
-            record.setStatus(NotificationStatus.FAILED);
+            NotificationRecord record = aNotification()
+                    .withRecipient("paged-test-" + i + "@example.com")
+                    .withChannel(NotificationChannel.EMAIL)
+                    .failed()
+                    .build();
             notificationRepository.persist(record);
         }
 
@@ -91,11 +90,11 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
         List<String> ids = new ArrayList<>();
         QuarkusTransaction.requiringNew().run(() -> {
             for (int i = 0; i < 10; i++) {
-                NotificationRecord record = new NotificationRecord();
-                record.setId(UUID.randomUUID().toString());
-                record.setRecipient("claim-test-" + i + "@example.com");
-                record.setChannel(NotificationChannel.EMAIL);
-                record.setStatus(NotificationStatus.QUEUED);
+                NotificationRecord record = aNotification()
+                        .withRecipient("claim-test-" + i + "@example.com")
+                        .withChannel(NotificationChannel.EMAIL)
+                        .queued()
+                        .build();
                 notificationRepository.persist(record);
                 ids.add(record.getId());
             }
@@ -140,17 +139,15 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
 
     @Test
     void testClaimBatchReapsExpiredProcessingRow() {
-        String id = UUID.randomUUID().toString();
-        QuarkusTransaction.requiringNew().run(() -> {
-            NotificationRecord record = new NotificationRecord();
-            record.setId(id);
-            record.setRecipient("stuck@example.com");
-            record.setChannel(NotificationChannel.EMAIL);
-            record.setStatus(NotificationStatus.PROCESSING);
-            record.setLockedBy("dead-worker");
-            record.setLockedAt(LocalDateTime.now().minusSeconds(120));
-            notificationRepository.persist(record);
-        });
+        NotificationRecord seed = aNotification()
+                .withRecipient("stuck@example.com")
+                .withChannel(NotificationChannel.EMAIL)
+                .processing()
+                .lockedBy("dead-worker")
+                .build();
+        seed.setLockedAt(LocalDateTime.now().minusSeconds(120));
+        String id = seed.getId();
+        QuarkusTransaction.requiringNew().run(() -> notificationRepository.persist(seed));
 
         List<ClaimResult> claimed = QuarkusTransaction.requiringNew().call(() ->
                 notificationRepository.claimBatch(10, "worker-reaper", 60));
@@ -166,17 +163,14 @@ public class NotificationRepositoryTest extends BaseIntegrationTest {
 
     @Test
     void testClaimBatchDoesNotReapFreshProcessingRow() {
-        String id = UUID.randomUUID().toString();
-        QuarkusTransaction.requiringNew().run(() -> {
-            NotificationRecord record = new NotificationRecord();
-            record.setId(id);
-            record.setRecipient("in-flight@example.com");
-            record.setChannel(NotificationChannel.EMAIL);
-            record.setStatus(NotificationStatus.PROCESSING);
-            record.setLockedBy("active-worker");
-            record.setLockedAt(LocalDateTime.now());
-            notificationRepository.persist(record);
-        });
+        NotificationRecord seed = aNotification()
+                .withRecipient("in-flight@example.com")
+                .withChannel(NotificationChannel.EMAIL)
+                .processing()
+                .lockedBy("active-worker")
+                .build();
+        String id = seed.getId();
+        QuarkusTransaction.requiringNew().run(() -> notificationRepository.persist(seed));
 
         List<ClaimResult> claimed = QuarkusTransaction.requiringNew().call(() ->
                 notificationRepository.claimBatch(10, "worker-reaper", 60));
