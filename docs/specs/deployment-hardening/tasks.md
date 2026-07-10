@@ -1,27 +1,27 @@
 # Tasks: deployment-hardening
 
-- [ ] T1: Mark `k8s-infra.yaml` as dev/demo-only — files: `k8s-infra.yaml` —
+- [x] T1: Mark `k8s-infra.yaml` as dev/demo-only — files: `k8s-infra.yaml` —
       done when: a top-of-file comment block states this manifest has no
       persistence, is safe to delete/recreate (`teardown-k8s.ps1` already does
       so routinely), and that durable "prod" storage lives in
       `docker-compose.yaml`'s `postgres-data` volume instead.
-- [ ] T2: Document the Kubernetes stack's scope in the README — files:
+- [x] T2: Document the Kubernetes stack's scope in the README — files:
       `README.md` — done when: the "Kubernetes Cluster (Local Enterprise Sim)"
       section states explicitly that this is a local demo path with no data
       durability guarantee, and points at `deploy-prod.ps1`/`docker-compose`
       as the path that persists Postgres data.
-- [ ] T3: Fix the app pod's termination grace period — files:
+- [x] T3: Fix the app pod's termination grace period — files:
       `src/main/kubernetes/kubernetes.yml` — done when:
       `terminationGracePeriodSeconds: 45` is set on the pod template, with a
       comment cross-referencing `quarkus.shutdown.timeout=30s`
       (`application.properties:103`) so the two values aren't silently
       allowed to drift back into a race.
-- [ ] T4: Split `build.yml`'s single job into `test` (unchanged behavior,
+- [x] T4: Split `build.yml`'s single job into `test` (unchanged behavior,
       runs on PRs and pushes) and gate everything else on it — files:
       `.github/workflows/build.yml` — done when: `mvnw verify` /
       `mvnw package -DskipTests` still run on every PR and every push to
       master, unchanged, under a job named `test`.
-- [ ] T5: Add the GHCR `release` job — files: `.github/workflows/build.yml` —
+- [x] T5: Add the GHCR `release` job — files: `.github/workflows/build.yml` —
       done when: a job gated on `github.event_name == 'push' && github.ref ==
       'refs/heads/master'` (`needs: test` — **only** `test`, deliberately not
       `native-build-test`, see dependency decision below) logs in to
@@ -30,7 +30,7 @@
       help:evaluate -Dexpression=project.version -q -DforceStdout`), and
       `latest` — with `permissions: packages: write` set at job level and no
       secret value appearing in any `run:` step's echoed output.
-- [ ] T6: Add the master-only native build/test job — files:
+- [x] T6: Add the master-only native build/test job — files:
       `.github/workflows/build.yml` — done when: a job gated the same way as
       T5, `needs: test` (JVM tests must pass before spending ~10 min on a
       native build), runs `./mvnw verify -Pnative
@@ -49,19 +49,32 @@
       off the same `test`-gated master push, in parallel, so master pushes get
       both signals with the release itself blocked only by what actually
       guards the released artifact's correctness.
-- [ ] T7: Remove the dead Hibernate key — files:
+- [x] T7: Remove the dead Hibernate key — files:
       `src/main/resources/application.properties`, `.env.example` — done
       when: `quarkus.hibernate-orm.db-generation=...` is deleted from
       `application.properties` and the now-orphaned `DB_GENERATION=none` line
       is deleted from `.env.example`; `quarkus.hibernate-orm.schema-management.strategy=validate`
       (already present) remains the sole schema-management config; app still
       boots cleanly against the existing Flyway migrations.
-- [ ] T8: Full local verification pass — files: none (validation only) —
+- [x] T8: Full local verification pass — files: none (validation only) —
       done when: `./mvnw verify` passes locally, the edited `build.yml` is
       valid YAML with `test`/`release`/`native-build-test` jobs correctly
       gated (spot-check via manual read-through — a real push to master isn't
       available from a feature branch, see T9), and the local deploy scripts
       (`deploy-dev.ps1` at minimum) still run unchanged.
+
+      Done: `mvnw verify` passes (exit 0) with
+      `-Dquarkus.container-image.build=false` — this machine's Docker Desktop
+      isn't reachable via npipe from this shell (a pre-existing local
+      limitation, confirmed unrelated to any change here: the same error
+      reproduces on `mvn package -DskipTests` alone, and disappears entirely
+      once the container-image build is skipped); CI runs on Linux runners
+      with native Docker access and is unaffected. `build.yml` parsed with
+      PyYAML: confirms `release` and `native-build-test` both have
+      `needs: test` only and the same master-push `if:` gate. `git diff
+      master --stat -- scripts/ docker-compose.yaml` is empty — zero changes
+      to any local deploy script or docker-compose across this entire
+      branch.
 - [ ] T9 (post-merge, cannot complete before merge): Confirm the release
       pipeline on real `master` — done when: after this branch merges, the
       Actions run triggered on `master` shows both `release` and
