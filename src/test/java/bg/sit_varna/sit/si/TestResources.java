@@ -30,7 +30,6 @@ public class TestResources implements QuarkusTestResourceLifecycleManager {
 
                 "quarkus.redis.hosts", "redis://" + redis.getHost() + ":" + redis.getMappedPort(6379),
 
-                "quarkus.hibernate-orm.db-generation", "none",
                 "redis.deduplication.enabled", "true",
                 "redis.rate-limit.enabled", "true",
                 "redis.rate-limit.email-max", "2"
