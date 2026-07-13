@@ -15,12 +15,24 @@
         <quarkus.platform.version>3.28.4</quarkus.platform.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
+        <!-- @Tag("live") tests require the service running externally,
+             not just @QuarkusTest-managed - excluded by default, opt-in
+             via -DrunLive=true. Mirrors qa-commons's own template module. -->
+        <groups></groups>
+        <excludedGroups>live</excludedGroups>
         <testcontainers.version>2.0.2</testcontainers.version>
         <archunit.version>1.4.1</archunit.version>
         <jacoco-plugin.version>0.8.12</jacoco-plugin.version>
         <assertj.version>3.26.3</assertj.version>
         <wiremock.version>3.9.2</wiremock.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -204,6 +216,16 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- qa-commons-api, consumed via JitPack (com.github.<user>.<repo> for
+             multi-module builds) - consumption proof only, not a testkit
+             migration. See ChannelsQaCommonsConsumptionTest. -->
+        <dependency>
+            <groupId>com.github.UseYourActive.qa-commons</groupId>
+            <artifactId>qa-commons-api</artifactId>
+            <version>v0.1.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Used for reading configs in yaml format -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -282,6 +304,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire-plugin.version}</version>
                 <configuration>
+                    <groups>${groups}</groups>
+                    <excludedGroups>${excludedGroups}</excludedGroups>
                     <systemPropertyVariables>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
@@ -354,6 +378,18 @@
                 <quarkus.package.jar.enabled>false</quarkus.package.jar.enabled>
                 <skipITs>false</skipITs>
                 <quarkus.native.enabled>true</quarkus.native.enabled>
+            </properties>
+        </profile>
+        <profile>
+            <id>live</id>
+            <activation>
+                <property>
+                    <name>runLive</name>
+                </property>
+            </activation>
+            <properties>
+                <groups>live</groups>
+                <excludedGroups></excludedGroups>
             </properties>
         </profile>
     </profiles>
