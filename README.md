@@ -330,6 +330,8 @@ k9s
 
 We provide automated scripts to validate system behavior under load.
 
+Tests tagged `@Tag("live")` require this service running externally (not just `@QuarkusTest`-managed) and are excluded from a plain `mvn test`/`mvn verify` by default — opt in with `mvn test -DrunLive=true`.
+
 ### Concurrency Stress Test
 
 Verify the system's non-blocking capabilities by firing 20 parallel requests. This triggers the Virtual Thread pool and demonstrates throughput.
