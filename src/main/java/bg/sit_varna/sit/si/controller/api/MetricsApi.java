@@ -1,12 +1,12 @@
 package bg.sit_varna.sit.si.controller.api;
 
+import bg.sit_varna.sit.si.dto.response.MetricsResponse;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
@@ -110,10 +110,7 @@ public interface MetricsApi {
                     description = "Successfully retrieved today's metrics",
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON,
-                            schema = @Schema(
-                                    type = SchemaType.OBJECT,
-                                    implementation = Object.class
-                            )
+                            schema = @Schema(implementation = MetricsResponse.class)
                     )
             )
     })
