@@ -216,13 +216,20 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- qa-commons-api, consumed via JitPack (com.github.<user>.<repo> for
-             multi-module builds) - consumption proof only, not a testkit
-             migration. See ChannelsQaCommonsConsumptionTest. -->
+        <!-- qa-commons-api/qa-commons-db, consumed via JitPack
+             (com.github.<user>.<repo> for multi-module builds) - the
+             qa-commons-live-suite black-box tests. See
+             docs/specs/qa-commons-live-suite/plan.md. -->
         <dependency>
             <groupId>com.github.UseYourActive.qa-commons</groupId>
             <artifactId>qa-commons-api</artifactId>
-            <version>v0.1.0</version>
+            <version>v0.3.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.UseYourActive.qa-commons</groupId>
+            <artifactId>qa-commons-db</artifactId>
+            <version>v0.3.0</version>
             <scope>test</scope>
         </dependency>
 
