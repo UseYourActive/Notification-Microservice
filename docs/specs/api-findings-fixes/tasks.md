@@ -1,6 +1,6 @@
 # Tasks: api-findings-fixes
 
-- [ ] T1: `JsonbDeserializationExceptionMapper` + `JacksonDeserializationExceptionMapper`
+- [x] T1: `JsonbDeserializationExceptionMapper` + `JacksonDeserializationExceptionMapper`
   + shared response-building helper + regression tests — files:
   `src/main/java/bg/sit_varna/sit/si/exception/mapper/{JsonbDeserializationExceptionMapper,JacksonDeserializationExceptionMapper,DeserializationErrorTranslator}.java`,
   `src/test/java/bg/sit_varna/sit/si/api/NotificationResourceTest.java` (new
@@ -15,12 +15,12 @@
   `getPath()`'s literal field name is used when that path is ever reached;
   163 internal tests still green.
 
-- [ ] T2: Fix `NotificationApi`'s `POST /send` `@APIResponse` — `200` → `202`
+- [x] T2: Fix `NotificationApi`'s `POST /send` `@APIResponse` — `200` → `202`
   — files: `src/main/java/bg/sit_varna/sit/si/controller/api/NotificationApi.java`
   — done when: `/q/openapi` on the running service shows `202` for that
   operation's success response and no other response codes changed.
 
-- [ ] T3: `MetricsResponse` record, wire into `MetricsResource`, update
+- [x] T3: `MetricsResponse` record, wire into `MetricsResource`, update
   `MetricsApi`'s OpenAPI schema — files:
   `src/main/java/bg/sit_varna/sit/si/dto/response/MetricsResponse.java`,
   `src/main/java/bg/sit_varna/sit/si/controller/resource/MetricsResource.java`,
@@ -30,7 +30,7 @@
   (not `implementation = Object.class`), and the existing
   `MetricsResourceApiTest` passes unchanged.
 
-- [ ] T4: Update the live acceptance test — rename
+- [x] T4: Update the live acceptance test — rename
   `InvalidChannelFindingLiveTest` → `InvalidChannelValidationLiveTest`,
   assert the new 400/`VALIDATION_FAILED`/`expectFailure()` behavior — files:
   `src/test/java/bg/sit_varna/sit/si/qacommons/InvalidChannelValidationLiveTest.java`
@@ -39,7 +39,7 @@
   checkout, confirming it actually pins the new behavior), and the other 7
   live tests pass unchanged.
 
-- [ ] T5: Update `findings.md` — mark all three entries resolved with commit
+- [x] T5: Update `findings.md` — mark all three entries resolved with commit
   references, add finding #4 (dual JSON-B/Jackson reader race, discovered
   while fixing #1, left open/unresolved on purpose) — files:
   `docs/specs/qa-commons-live-suite/findings.md` — done when: entries 1-3
@@ -47,7 +47,7 @@
   tests), and entry 4 documents the reader race as a future, separate
   consolidation mission.
 
-- [ ] T6: Close-out — both gates — files:
+- [x] T6: Close-out — both gates — files:
   `docs/specs/api-findings-fixes/tasks.md` (check off all boxes) — done
   when: `mvn test` (service down) is green (163 internal tests, live tests
   excluded) and `mvn test -DrunLive=true` (service up) is green (8 live
