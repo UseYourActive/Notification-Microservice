@@ -258,7 +258,7 @@ public interface NotificationApi {
     )
     @APIResponses(value = {
             @APIResponse(
-                    responseCode = "200",
+                    responseCode = "202",
                     description = """
                 Notification sent successfully and delivery confirmed by the provider.
                 
