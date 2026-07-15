@@ -57,3 +57,25 @@ for the one qa-commons can't express yet.
 **Fix location:** qa-commons's own backlog (a `TypeReference`/`JavaType`
 overload on `Endpoint`), not this repo. This entry is the evidence for that
 upstream ask.
+
+## 3. Service convention gap: `metrics-today` has no typed response DTO
+
+**Expected:** `GET /api/v1/metrics/today` returns a typed record, consistent
+with every other response in this codebase (`SendNotificationResponse`,
+`GetChannelsResponse`, `FailedNotificationResponse`, …).
+
+**Actual:** `MetricsResource.getTodayMetrics()` builds and returns a raw
+`Map<String, Object>` (`total`, `byChannel`, `successRate`). The OpenAPI
+schema is a bare `{"type": "object"}` with no properties — `MetricsApi`'s
+`@APIResponse` even declares `implementation = Object.class` — because
+there's nothing to introspect.
+
+**Consequence for this suite:** `MetricsEndpoint` is typed against raw
+`Map` rather than a production record, and `MetricsTodayContractLiveTest`
+asserts structurally (keys present, plausible types) instead of against
+real field types.
+
+**Evidence:** `MetricsEndpoint`, `MetricsTodayContractLiveTest`.
+
+**Fix location:** production code — a typed `MetricsResponse` record — is
+future service work, out of scope for this branch.
