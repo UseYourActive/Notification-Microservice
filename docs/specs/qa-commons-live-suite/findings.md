@@ -30,3 +30,30 @@ was written.
 
 **Fix location:** production code (`exception/mapper/`), out of scope for
 this branch.
+
+## 2. qa-commons framework gap: `Endpoint` can't express a generic envelope
+
+**Expected:** `FailedNotificationsEndpoint` types directly against the real
+production response, `PageResponse<FailedNotificationResponse>`, the same
+way every other endpoint in this suite types against its real DTO.
+
+**Actual:** qa-commons' `Endpoint<TReq, TRes, TErr>` constructor only
+accepts a raw `Class<TRes>` (no `TypeReference`/`JavaType`-accepting
+overload). Jackson's `readValue(String, Class<T>)` erases generic type
+parameters, so deserializing straight into `PageResponse.class` would
+silently produce `items: List<LinkedHashMap>` instead of
+`List<FailedNotificationResponse>` — a latent bug, not a compile error.
+Independently confirmed at the OpenAPI level too: `/q/openapi` itself can't
+resolve the generic item type either (`items: {type: array, items: {}}`,
+no `$ref` — see `contract-verification.md`).
+
+**Workaround here:** `FailedNotificationsPageResponse`, a concrete
+test-local record with the same fields, typed against the real
+`FailedNotificationResponse` for `items`. Not a new contract — a stand-in
+for the one qa-commons can't express yet.
+
+**Evidence:** `FailedNotificationsEndpoint`, `FailedNotificationsPageResponse`.
+
+**Fix location:** qa-commons's own backlog (a `TypeReference`/`JavaType`
+overload on `Endpoint`), not this repo. This entry is the evidence for that
+upstream ask.
