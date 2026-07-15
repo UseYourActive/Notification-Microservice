@@ -6,30 +6,36 @@ documented, not silently weakened to tolerate it and not fixed as a
 drive-by. Each entry names the evidence test and, where relevant, whose
 backlog the fix belongs on.
 
-## 1. Service bug: invalid `channel` value → unhandled 500
+## 1. Service bug: invalid `channel` value → unhandled 500 — **RESOLVED**
 
 **Expected:** `400` with an `ErrorResponse` body (`VALIDATION_FAILED` or
 similar), consistent with every other input-validation failure on this
 endpoint.
 
-**Actual:** `500 Internal Server Error` with a plain-text Quarkus error page
-(not JSON).
+**Actual (before the fix):** `500 Internal Server Error` with a plain-text
+Quarkus error page (not JSON).
 
-**Root cause:** `NotificationChannel` is deserialized by Jackson from the
-`channel` field of `SendNotificationRequest`. None of the `@Provider`
-exception mappers in `exception/mapper/` (`ConstraintViolationExceptionMapper`,
-`ValidationExceptionMapper`, `IllegalArgumentExceptionMapper`,
-`NotificationExceptionHandler`, `RateLimitExceptionMapper`) catches a
-Jackson deserialization failure (`InvalidFormatException`/
-`JsonMappingException`), so an unrecognized enum value propagates as an
-unhandled exception.
+**Root cause, corrected:** the original write-up assumed Jackson. Live
+reproduction during the fix (`docs/specs/api-findings-fixes/plan.md`) showed
+otherwise: this app has *both* `quarkus-rest-jsonb` and `quarkus-rest-jackson`
+on the classpath, and JSON-B/Yasson actually wins the `MessageBodyReader`
+race for this endpoint — the real exception was `jakarta.json.bind.JsonbException`
+wrapping `IllegalArgumentException: No enum constant ...`, not a Jackson
+type. See finding #4 below for the reader-race itself, left open.
 
-**Evidence:** `InvalidChannelFindingLiveTest` — pins the current `500`
-response on purpose; verified live via direct `curl` in T3 before the test
-was written.
+**Fix:** `JsonbDeserializationExceptionMapper` (the actual reader, today) +
+`JacksonDeserializationExceptionMapper` (dormant, but kept correct in case
+the reader race ever resolves differently) — both translate into the
+existing `400 VALIDATION_FAILED` `ErrorResponse` shape, with a detail naming
+the offending enum type and its accepted values.
 
-**Fix location:** production code (`exception/mapper/`), out of scope for
-this branch.
+**Commits:** `fceb91b` (mappers + regression tests),
+`b84ad6e` (live acceptance test — renamed `InvalidChannelFindingLiveTest` →
+`InvalidChannelValidationLiveTest`, now asserts 400 instead of pinning 500).
+
+**Proof:** `NotificationResourceTest.testSendEndpoint_InvalidChannelValue_ReturnsValidationFailed`
+(integration, JSON-B path), `JacksonDeserializationExceptionMapperTest` (unit,
+Jackson path), `InvalidChannelValidationLiveTest` (live, post-fix).
 
 ## 2. qa-commons framework gap: `Endpoint` can't express a generic envelope
 
@@ -58,24 +64,66 @@ for the one qa-commons can't express yet.
 overload on `Endpoint`), not this repo. This entry is the evidence for that
 upstream ask.
 
-## 3. Service convention gap: `metrics-today` has no typed response DTO
+## 3. Service convention gap: `metrics-today` has no typed response DTO — **RESOLVED**
 
 **Expected:** `GET /api/v1/metrics/today` returns a typed record, consistent
 with every other response in this codebase (`SendNotificationResponse`,
 `GetChannelsResponse`, `FailedNotificationResponse`, …).
 
-**Actual:** `MetricsResource.getTodayMetrics()` builds and returns a raw
-`Map<String, Object>` (`total`, `byChannel`, `successRate`). The OpenAPI
-schema is a bare `{"type": "object"}` with no properties — `MetricsApi`'s
-`@APIResponse` even declares `implementation = Object.class` — because
-there's nothing to introspect.
+**Actual (before the fix):** `MetricsResource.getTodayMetrics()` built and
+returned a raw `Map<String, Object>` (`total`, `byChannel`, `successRate`).
+The OpenAPI schema was a bare `{"type": "object"}` with no properties —
+`MetricsApi`'s `@APIResponse` declared `implementation = Object.class` —
+because there was nothing to introspect.
 
-**Consequence for this suite:** `MetricsEndpoint` is typed against raw
-`Map` rather than a production record, and `MetricsTodayContractLiveTest`
-asserts structurally (keys present, plausible types) instead of against
-real field types.
+**Fix:** `MetricsResponse(long total, Map<String, Long> byChannel, double
+successRate)`, field types matching `MetricsService`'s actual method
+signatures (not just the wire sample). `MetricsResource` returns it
+directly; `MetricsApi`'s OpenAPI schema now names the real type.
+Behavior-preserving — verified live that the wire JSON shape is unchanged,
+and the existing `MetricsResourceApiTest` passes without modification.
 
-**Evidence:** `MetricsEndpoint`, `MetricsTodayContractLiveTest`.
+**Commit:** `f9c8bfa`.
 
-**Fix location:** production code — a typed `MetricsResponse` record — is
-future service work, out of scope for this branch.
+**Proof:** `MetricsResourceApiTest` (unchanged, still passing),
+`MetricsTodayContractLiveTest` (unchanged in the live suite, still passing),
+live `/q/openapi` diff in the commit.
+
+## 4. Dual JSON-B/Jackson `MessageBodyReader` race — **open, not fixed**
+
+**Discovered while fixing #1.** This app declares both `quarkus-rest-jsonb`
+(`pom.xml:74`) and `quarkus-rest-jackson` (`pom.xml:82`) as direct
+dependencies, with no comment explaining the coexistence. For
+`POST /api/v1/notifications/send`, RESTEasy Reactive's reader-priority
+resolution currently picks JSON-B (Yasson)'s `JsonbMessageBodyReader` over
+Jackson's — confirmed by the live stack trace captured while fixing finding
+#1 (`docs/specs/api-findings-fixes/plan.md`). Nothing about this codebase's
+usage otherwise suggests JSON-B was the intended choice — `ErrorResponse`
+and other DTOs carry Jackson-specific annotations (`@JsonInclude`), and this
+is the only place JSON-B's involvement was ever observed.
+
+**Why this matters:** which reader wins is an accident of classpath/registration
+order, not a design decision — nondeterministic behavior surface (differs
+per endpoint, per Quarkus/RESTEasy Reactive version, possibly per build),
+extra native-image weight from carrying two full JSON stacks, and two
+different null-handling/naming conventions available depending on which
+reader happens to fire. Finding #1's fix (`JsonbDeserializationExceptionMapper`
++ `JacksonDeserializationExceptionMapper`) is deliberately resilient to
+*either* reader winning, specifically because of this.
+
+**Fix location:** deliberately not touched in either this mission or
+`api-findings-fixes`. Consolidating onto one JSON stack (likely Jackson,
+the default everywhere else here) is its own future mission — real blast
+radius, since serialization semantics (null-handling, date formatting,
+naming) can differ subtly between the two, and every endpoint would need
+re-verification, not just the one this investigation happened to touch.
+
+## Also fixed in this mission (not originally a numbered finding here)
+
+**`POST /send`'s OpenAPI response code was wrong.** `NotificationApi`
+documented `200` for a successful send; the resource has always returned
+`202` (this was recorded in `contract-verification.md`'s T3, not as a
+numbered `findings.md` entry, but fixed alongside #1 and #3 since it's the
+same "tell the truth about the API" mission). Status code only — the
+response description prose was left alone. **Commit:** `68a7a42`. Verified
+live via `/q/openapi` post-fix.
