@@ -330,6 +330,8 @@ k9s
 
 We provide automated scripts to validate system behavior under load.
 
+This project tests in two tiers. The internal suite (`@QuarkusTest`, WireMock, `src/test/java/.../testkit`) verifies behavior from inside the process — unit, slice, and integration tests that never leave the JVM. The `qacommons`-package suite (`src/test/java/.../qacommons`, all `@Tag("live")`) verifies the deployed HTTP + Postgres contract from outside, via [qa-commons](https://github.com/UseYourActive/qa-commons) consumed as a JitPack dependency — send/validation, a DB row oracle, duplicate-send behavior, and contract-shape checks for channels/failed-list/metrics. It needs the real service and its Postgres running (`docker-compose up`; the DB oracle tests additionally need `QA_DB_PORT=15432` — this repo remaps compose Postgres off qa-commons-db's default 5432).
+
 Tests tagged `@Tag("live")` require this service running externally (not just `@QuarkusTest`-managed) and are excluded from a plain `mvn test`/`mvn verify` by default — opt in with `mvn test -DrunLive=true`.
 
 ### Concurrency Stress Test
