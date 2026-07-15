@@ -49,6 +49,23 @@ public class NotificationResourceTest extends ApiTestBase {
     }
 
     @Test
+    void testSendEndpoint_InvalidChannelValue_ReturnsValidationFailed() {
+        String rawBody = """
+                {"channel":"CARRIER_PIGEON","recipient":"someone@example.com","message":"probe"}""";
+
+        var response = apiRequest()
+                .body(rawBody)
+                .when()
+                .post("/api/v1/notifications/send")
+                .thenReturn();
+
+        assertThatError(response)
+                .hasStatus(400)
+                .hasCode("VALIDATION_FAILED")
+                .hasDetailContaining("NotificationChannel");
+    }
+
+    @Test
     void testSendEndpoint_Success() {
         Mockito.doNothing().when(notificationService).dispatchNotification(any());
 
