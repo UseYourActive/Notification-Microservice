@@ -319,6 +319,11 @@
                         <api.version>1.44</api.version>
                         <quarkus.jacoco.data-file>${project.build.directory}/jacoco-quarkus.exec</quarkus.jacoco.data-file>
                         <quarkus.jacoco.reuse-data-file>true</quarkus.jacoco.reuse-data-file>
+                        <!-- Keeps any Allure listener's output under target/
+                             (cleaned by mvn clean) instead of the repo root -
+                             qa-commons-core carries allure-java-commons
+                             test-scoped for its own reflective bridge. -->
+                        <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
                     </systemPropertyVariables>
                     <argLine>@{argLine}</argLine>
                 </configuration>
