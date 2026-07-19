@@ -223,13 +223,13 @@
         <dependency>
             <groupId>com.github.UseYourActive.qa-commons</groupId>
             <artifactId>qa-commons-api</artifactId>
-            <version>v0.3.0</version>
+            <version>v0.4.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.github.UseYourActive.qa-commons</groupId>
             <artifactId>qa-commons-db</artifactId>
-            <version>v0.3.0</version>
+            <version>v0.4.0</version>
             <scope>test</scope>
         </dependency>
 
