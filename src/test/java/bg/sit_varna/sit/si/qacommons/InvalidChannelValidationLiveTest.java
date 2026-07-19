@@ -23,9 +23,16 @@ import org.junit.jupiter.api.Test;
  * {@code NotificationsEndpoint}/{@code SendNotificationRequest} contract -
  * this test still goes around it with a raw JSON body. Was
  * {@code InvalidChannelFindingLiveTest}, pinning a known 500 bug (see
- * docs/specs/qa-commons-live-suite/findings.md #1); now the acceptance
- * check for that fix (docs/specs/api-findings-fixes): asserts the new 400
+ * docs/specs/qa-commons-live-suite/findings.md #1); became the acceptance
+ * check for that fix (docs/specs/api-findings-fixes), asserting the 400
  * VALIDATION_FAILED behavior instead, typed via {@link ApiResult#expectFailure()}.
+ *
+ * <p>Now also the live acceptance check for finding #4
+ * (docs/specs/json-stack-consolidation): with quarkus-rest-jsonb removed,
+ * this request is served by {@code JacksonDeserializationExceptionMapper}
+ * instead of the JSON-B path, and {@code InvalidFormatException.getPath()}
+ * recovers the literal JSON field name - the message-asymmetry improvement
+ * predicted in api-findings-fixes/plan.md. Asserted live, not just observed.
  */
 @Tag("live")
 class InvalidChannelValidationLiveTest {
@@ -51,6 +58,8 @@ class InvalidChannelValidationLiveTest {
         assertThat(result.status()).isEqualTo(400);
         ErrorResponse error = result.expectFailure();
         assertThat(error.code()).isEqualTo("VALIDATION_FAILED");
-        assertThat(error.message()).contains("NotificationChannel");
+        // Literal JSON field name, not the enum type name - the
+        // Jackson-path detail this DTO now always takes (finding #4).
+        assertThat(error.message()).contains("field 'channel'");
     }
 }

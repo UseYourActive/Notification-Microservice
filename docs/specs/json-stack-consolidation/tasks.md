@@ -80,7 +80,7 @@
   then re-captured and re-verified as (b) field-order-only. Full details
   in `diff-report.md`. No other DTO showed a tier-(a) difference.
 
-- [ ] T4: Prophecy check — the field-name asymmetry improves, live, and an
+- [x] T4: Prophecy check — the field-name asymmetry improves, live, and an
   assertion proves it — files:
   `src/test/java/bg/sit_varna/sit/si/qacommons/InvalidChannelValidationLiveTest.java`
   (line 54 — replace `assertThat(error.message()).contains("NotificationChannel")`
