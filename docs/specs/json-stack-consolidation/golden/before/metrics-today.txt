@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+content-length: 76
+
+{"byChannel":{"SMS":0,"TELEGRAM":0,"EMAIL":75},"successRate":0.0,"total":75}
