@@ -128,7 +128,7 @@
   42,144→41,663 fields, 144,464→142,506 methods) - consistent with one
   fewer JSON stack being analyzed, not just a rounding artifact.
 
-- [ ] T7: Close out — resolve finding #4 — files:
+- [x] T7: Close out — resolve finding #4 — files:
   `docs/specs/qa-commons-live-suite/findings.md` (finding #4 section:
   change status to **RESOLVED**, add a "Fix" paragraph naming the removed
   extension and mapper, and a "Commits" line with the T1-T6 commit SHAs,
