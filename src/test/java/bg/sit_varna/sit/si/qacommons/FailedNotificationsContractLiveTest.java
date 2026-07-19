@@ -2,6 +2,8 @@ package bg.sit_varna.sit.si.qacommons;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import bg.sit_varna.sit.si.dto.response.FailedNotificationResponse;
+import bg.sit_varna.sit.si.dto.response.PageResponse;
 import bg.sit_varna.sit.si.exception.exceptions.ErrorResponse;
 import dev.qacommons.api.ApiResult;
 import dev.qacommons.core.config.QaConfig;
@@ -21,11 +23,11 @@ class FailedNotificationsContractLiveTest {
         FailedNotificationsEndpoint endpoint = new FailedNotificationsEndpoint(QaConfig.fromEnv());
 
         // Act
-        ApiResult<FailedNotificationsPageResponse, ErrorResponse> result = endpoint.list(0, 20);
+        ApiResult<PageResponse<FailedNotificationResponse>, ErrorResponse> result = endpoint.list(0, 20);
 
         // Assert - envelope shape only, tolerating an empty items list.
         assertThat(result.status()).isEqualTo(200);
-        FailedNotificationsPageResponse page = result.expectSuccess();
+        PageResponse<FailedNotificationResponse> page = result.expectSuccess();
         assertThat(page.page()).isEqualTo(0);
         assertThat(page.size()).isEqualTo(20);
         assertThat(page.totalItems()).isGreaterThanOrEqualTo(0);
