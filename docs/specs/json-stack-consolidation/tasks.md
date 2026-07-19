@@ -93,7 +93,7 @@
   just by reading the mapper code) that the documented message asymmetry
   from `api-findings-fixes/plan.md` resolved in the predicted direction.
 
-- [ ] T5: Manual `/q/openapi` diff and real-response spot check — files:
+- [x] T5: Manual `/q/openapi` diff and real-response spot check — files:
   none (verification-only task; findings recorded in the commit message,
   not a new doc — the golden diff in T3 is the durable record) — done
   when: `/q/openapi` fetched from the Jackson-only running service is
