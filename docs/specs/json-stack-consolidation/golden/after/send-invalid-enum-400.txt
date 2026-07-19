@@ -1,0 +1,5 @@
+HTTP/1.1 400 Bad Request
+Content-Type: application/json;charset=UTF-8
+content-length: 278
+
+{"code":"VALIDATION_FAILED","message":"Invalid value 'CARRIER_PIGEON' for field 'channel'; accepted values: EMAIL, SMS, TELEGRAM","timestamp":"2026-07-19T15:00:44.382712976","details":["Invalid value 'CARRIER_PIGEON' for field 'channel'; accepted values: EMAIL, SMS, TELEGRAM"]}

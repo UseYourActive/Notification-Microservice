@@ -1,6 +1,6 @@
 # Tasks: json-stack-consolidation
 
-- [ ] T1: Capture pre-swap golden response baseline — files:
+- [x] T1: Capture pre-swap golden response baseline — files:
   `docs/specs/json-stack-consolidation/golden/before/*.txt` (new) — done
   when: with the app running locally against current `master`-equivalent
   code (dual JSON-B/Jackson still on the classpath, via
@@ -20,7 +20,7 @@
   committed as-is (this task makes no production code change — it is
   evidence, not a fix).
 
-- [ ] T2: Remove `quarkus-rest-jsonb`, retire the dormant JSON-B mapper,
+- [x] T2: Remove `quarkus-rest-jsonb`, retire the dormant JSON-B mapper,
   Jackson becomes the sole reader — files: `pom.xml` (delete the
   `quarkus-rest-jsonb` dependency block, `pom.xml:72-75`),
   `src/main/java/bg/sit_varna/sit/si/exception/mapper/JsonbDeserializationExceptionMapper.java`
@@ -39,7 +39,7 @@
   `live` excluded as usual) is green, and no source file outside this
   list changed.
 
-- [ ] T3: Capture post-swap golden responses and diff against the T1
+- [x] T3: Capture post-swap golden responses and diff against the T1
   baseline — files: `docs/specs/json-stack-consolidation/golden/after/*.txt`
   (new), `docs/specs/json-stack-consolidation/golden/diff-report.md` (new)
   — done when: the app is redeployed (Jackson-only build) and the same
@@ -66,6 +66,19 @@
     loophole for real drift.
   Every one of the eight captures gets an explicit verdict in the report;
   none may be silently omitted.
+
+  **Mid-task finding (reality contradicted the "no change expected"
+  assumption in plan.md's blast-radius table, per spec-driven-dev's
+  "stop, flag, continue" rule):** the first post-swap capture of
+  `GET /notifications/failed` showed `FailedNotificationResponse` gaining
+  an explicit `"templateName": null` that JSON-B had been silently
+  omitting (JSON-B's default excludes nulls; the DTO had no
+  `@JsonInclude`, unlike `ErrorResponse`, which does). This is a genuine
+  (a) semantic difference — fixed in the same commit by adding
+  `@JsonInclude(JsonInclude.Include.NON_NULL)` to
+  `src/main/java/bg/sit_varna/sit/si/dto/response/FailedNotificationResponse.java`,
+  then re-captured and re-verified as (b) field-order-only. Full details
+  in `diff-report.md`. No other DTO showed a tier-(a) difference.
 
 - [ ] T4: Prophecy check — the field-name asymmetry improves, live, and an
   assertion proves it — files:

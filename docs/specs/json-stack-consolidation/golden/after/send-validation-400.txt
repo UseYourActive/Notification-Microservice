@@ -1,0 +1,5 @@
+HTTP/1.1 400 Bad Request
+Content-Type: application/json;charset=UTF-8
+content-length: 164
+
+{"code":"VALIDATION_FAILED","message":"recipient: Recipient is required","timestamp":"2026-07-19T15:00:44.317092956","details":["recipient: Recipient is required"]}

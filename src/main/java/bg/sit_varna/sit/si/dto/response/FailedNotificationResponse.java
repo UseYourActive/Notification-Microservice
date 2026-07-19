@@ -2,11 +2,13 @@ package bg.sit_varna.sit.si.dto.response;
 
 import bg.sit_varna.sit.si.constant.NotificationStatus;
 import bg.sit_varna.sit.si.entity.NotificationRecord;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
 @Schema(description = "Summary of a failed notification")
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record FailedNotificationResponse(
 
         @Schema(description = "Unique notification identifier",

@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+content-length: 863
+
+{"templates":[{"name":"telegram/daily_reminder","type":"telegram","locales":["bg","en"],"description":"Daily reminder template for telegram"},{"name":"email/password_reset","type":"email","locales":["bg","en"],"description":"Password reset template for email"},{"name":"sms/verification_code","type":"sms","locales":["bg","en"],"description":"Verification code template for sms"},{"name":"telegram/password_reset","type":"telegram","locales":["bg","en"],"description":"Password reset template for telegram"},{"name":"sms/appointment_reminder","type":"sms","locales":["bg","en"],"description":"Appointment reminder template for sms"},{"name":"email/welcome","type":"email","locales":["bg","en"],"description":"Welcome template for email"},{"name":"telegram/welcome","type":"telegram","locales":["bg","en"],"description":"Welcome template for telegram"}],"total":7}
