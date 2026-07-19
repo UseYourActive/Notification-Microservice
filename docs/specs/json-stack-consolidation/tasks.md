@@ -106,7 +106,7 @@
   confirms responses read as expected — this is the mission's required
   manual gate, distinct from and in addition to the automated diff in T3.
 
-- [ ] T6 (best-effort, non-blocking): Native image size before/after —
+- [x] T6 (best-effort, non-blocking): Native image size before/after —
   files: none (observation, not a code change; recorded in the commit
   message for this task, or explicitly skipped with a one-line reason if
   it would meaningfully slow the mission) — done when: either two local
@@ -117,6 +117,16 @@
   explicitly rather than silently omitting it. The actual native-image CI
   gate (`.github/workflows/build.yml`'s `native-build-test`, master-only,
   post-merge) is unaffected either way and is not what this task verifies.
+
+  **Result:** before (T1, dual-stack): 131,199,272 bytes (125.12 MiB).
+  After (T2+, Jackson-only): 129,732,904 bytes (123.72 MiB). Delta:
+  1,466,368 bytes (1.40 MiB), 1.12% smaller. The pre-swap build log also
+  shows a Yasson-contributed native-image config
+  (`org.eclipse.yasson-3.0.4.jar`'s `native-image.properties`,
+  `-H:IncludeResourceBundles`) absent post-swap, and fewer reachable
+  types/fields/methods in the analysis phase (30,403→29,551 types,
+  42,144→41,663 fields, 144,464→142,506 methods) - consistent with one
+  fewer JSON stack being analyzed, not just a rounding artifact.
 
 - [ ] T7: Close out — resolve finding #4 — files:
   `docs/specs/qa-commons-live-suite/findings.md` (finding #4 section:
