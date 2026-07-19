@@ -11,13 +11,12 @@ import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
 /**
- * Handles request-body deserialization failures from the Jackson reader.
- * Dormant today - this app's JSON bodies currently route through JSON-B
- * (see {@link JsonbDeserializationExceptionMapper}), a reader-priority race
- * documented in docs/specs/qa-commons-live-suite/findings.md #4 - but kept
- * correct and tested so a future change in that race (or a consolidation
- * onto Jackson) doesn't silently reopen the 500. Unlike the JSON-B path,
- * {@link InvalidFormatException#getPath()} gives a real JSON field name.
+ * Handles request-body deserialization failures from Jackson - the sole
+ * JSON reader for this app since the JSON-B/Jackson reader-priority race
+ * (docs/specs/qa-commons-live-suite/findings.md #4) was resolved by
+ * removing quarkus-rest-jsonb (docs/specs/json-stack-consolidation).
+ * {@link InvalidFormatException#getPath()} gives a real JSON field name,
+ * an improvement over the JSON-B path's detail this mapper replaced.
  */
 @Provider
 public class JacksonDeserializationExceptionMapper implements ExceptionMapper<InvalidFormatException> {

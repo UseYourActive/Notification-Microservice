@@ -9,11 +9,11 @@ import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit test, not an integration test - this app's JSON bodies currently
- * route through JSON-B, not Jackson (see
- * {@link JsonbDeserializationExceptionMapper}), so this path can't be
- * reached via a real request today. Proves the mapper's logic directly so
- * it's correct whenever that reader race resolves differently.
+ * Unit test proving the mapper's logic directly, independent of the live
+ * REST stack. Since docs/specs/json-stack-consolidation removed
+ * quarkus-rest-jsonb, this mapper is now the sole live path for malformed
+ * request bodies - see {@code NotificationResourceTest} (integration) and
+ * {@code InvalidChannelValidationLiveTest} (live) for end-to-end coverage.
  */
 class JacksonDeserializationExceptionMapperTest {
 
