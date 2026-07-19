@@ -37,32 +37,49 @@ the offending enum type and its accepted values.
 (integration, JSON-B path), `JacksonDeserializationExceptionMapperTest` (unit,
 Jackson path), `InvalidChannelValidationLiveTest` (live, post-fix).
 
-## 2. qa-commons framework gap: `Endpoint` can't express a generic envelope
+## 2. qa-commons framework gap: `Endpoint` can't express a generic envelope — **RESOLVED**
 
 **Expected:** `FailedNotificationsEndpoint` types directly against the real
 production response, `PageResponse<FailedNotificationResponse>`, the same
 way every other endpoint in this suite types against its real DTO.
 
-**Actual:** qa-commons' `Endpoint<TReq, TRes, TErr>` constructor only
-accepts a raw `Class<TRes>` (no `TypeReference`/`JavaType`-accepting
-overload). Jackson's `readValue(String, Class<T>)` erases generic type
-parameters, so deserializing straight into `PageResponse.class` would
-silently produce `items: List<LinkedHashMap>` instead of
-`List<FailedNotificationResponse>` — a latent bug, not a compile error.
-Independently confirmed at the OpenAPI level too: `/q/openapi` itself can't
-resolve the generic item type either (`items: {type: array, items: {}}`,
-no `$ref` — see `contract-verification.md`).
+**Actual (before the fix):** qa-commons' `Endpoint<TReq, TRes, TErr>`
+constructor only accepted a raw `Class<TRes>` (no `TypeReference`/
+`JavaType`-accepting overload). Jackson's `readValue(String, Class<T>)`
+erases generic type parameters, so deserializing straight into
+`PageResponse.class` would silently produce `items: List<LinkedHashMap>`
+instead of `List<FailedNotificationResponse>` — a latent bug, not a compile
+error. Independently confirmed at the OpenAPI level too: `/q/openapi`
+itself can't resolve the generic item type either (`items: {type: array,
+items: {}}`, no `$ref` — see `contract-verification.md`).
 
-**Workaround here:** `FailedNotificationsPageResponse`, a concrete
-test-local record with the same fields, typed against the real
+**Workaround, since removed:** `FailedNotificationsPageResponse`, a
+concrete test-local record with the same fields, typed against the real
 `FailedNotificationResponse` for `items`. Not a new contract — a stand-in
-for the one qa-commons can't express yet.
+for the one qa-commons couldn't express yet.
 
-**Evidence:** `FailedNotificationsEndpoint`, `FailedNotificationsPageResponse`.
+**Fix:** qa-commons `v0.4.0` added an additive `Endpoint` constructor
+overload accepting Jackson's `TypeReference<TRes>` alongside the existing
+`Class<TRes>` one (qa-commons repo, `feature/generic-response-types`,
+merged as PR #3, tag `v0.4.0`). This repo bumped `qa-commons-api`/
+`qa-commons-db` from `v0.3.0` to `v0.4.0` and switched
+`FailedNotificationsEndpoint` to the new constructor, typing directly
+against this app's own production `PageResponse<FailedNotificationResponse>`
+(`bg.sit_varna.sit.si.dto.response`) — the exact DTO `NotificationResource`
+returns — instead of the deleted stand-in record. No `qa-commons-template`
+dependency was added; the generic type reused is this module's own
+existing production DTO, already on the test classpath via `src/main`.
 
-**Fix location:** qa-commons's own backlog (a `TypeReference`/`JavaType`
-overload on `Endpoint`), not this repo. This entry is the evidence for that
-upstream ask.
+**Evidence (historical):** `FailedNotificationsEndpoint`,
+`FailedNotificationsPageResponse` (deleted).
+
+**Commit:** `f10b88b` (`chore/adopt-qa-commons-v0.4.0`).
+
+**Proof:** `FailedNotificationsContractLiveTest` (live, unchanged
+assertions, now backed by the real generic type instead of the stand-in)
+— green both with the service down (`mvn test`, generic-typed compile
+succeeds) and with it up (`mvn test -DrunLive=true`), reading a field off
+each deserialized item with no `ClassCastException`.
 
 ## 3. Service convention gap: `metrics-today` has no typed response DTO — **RESOLVED**
 
