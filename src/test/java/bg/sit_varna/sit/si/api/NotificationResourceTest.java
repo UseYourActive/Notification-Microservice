@@ -62,7 +62,7 @@ public class NotificationResourceTest extends ApiTestBase {
         assertThatError(response)
                 .hasStatus(400)
                 .hasCode("VALIDATION_FAILED")
-                .hasDetailContaining("NotificationChannel");
+                .hasDetailContaining("channel");
     }
 
     @Test

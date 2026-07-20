@@ -5,8 +5,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 
 /**
- * Shared response-building for the two deserialization-failure mappers
- * ({@link JsonbDeserializationExceptionMapper}, {@link JacksonDeserializationExceptionMapper}) -
+ * Shared response-building for {@link JacksonDeserializationExceptionMapper} -
  * same 400 VALIDATION_FAILED shape as {@link ConstraintViolationExceptionMapper}.
  */
 final class DeserializationErrorTranslator {

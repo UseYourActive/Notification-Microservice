@@ -1,0 +1,1387 @@
+HTTP/1.1 200 OK
+Content-Type: application/yaml;charset=UTF-8
+content-length: 46183
+
+---
+openapi: 3.1.0
+components:
+  schemas:
+    ChannelInfo:
+      type: object
+      description: Information about a notification channel
+      properties:
+        name:
+          type: string
+          examples:
+          - EMAIL
+          description: Channel name
+        description:
+          type: string
+          examples:
+          - Send notifications via email
+          description: Channel description
+        enabled:
+          type: boolean
+          examples:
+          - true
+          description: Whether the channel is enabled
+    CreateTemplateRequest:
+      type: object
+      required:
+      - templateName
+      - locale
+      - content
+      description: Request object for creating a new template
+      properties:
+        templateName:
+          type: string
+          pattern: \S
+        locale:
+          type: string
+          pattern: \S
+        content:
+          type: string
+          pattern: \S
+    ErrorResponse:
+      type: object
+      required:
+      - code
+      - message
+      - timestamp
+      description: Error response structure
+      properties:
+        code:
+          type: string
+          examples:
+          - VALIDATION_FAILED
+          description: Error code (machine-readable identifier)
+        title:
+          type: string
+          examples:
+          - Validation Failed
+          description: Error title (human-readable category)
+        message:
+          type: string
+          examples:
+          - The request contains invalid data
+          description: Error message (detailed description)
+        category:
+          type: string
+          examples:
+          - VALIDATION
+          description: "Error category (VALIDATION, TEMPLATE, NOTIFICATION, SYSTEM)"
+        timestamp:
+          $ref: "#/components/schemas/LocalDateTime"
+          type: string
+          examples:
+          - 2025-10-26T15:30:00
+          description: Timestamp when the error occurred
+        details:
+          type: array
+          examples:
+          - - "recipient: must not be blank"
+            - "channel: must not be null"
+          items:
+            type: string
+          description: Detailed error information (optional)
+    FailedNotificationResponse:
+      type: object
+      description: Summary of a failed notification
+      properties:
+        notificationId:
+          type: string
+          examples:
+          - 550e8400-e29b-41d4-a716-446655440000
+          description: Unique notification identifier
+        recipient:
+          type: string
+          examples:
+          - ivan.petrov@example.com
+          description: Recipient identifier
+        channel:
+          type: string
+          examples:
+          - EMAIL
+          description: Notification channel
+        templateName:
+          type: string
+          examples:
+          - email/welcome
+          description: Template used for the notification
+        status:
+          $ref: "#/components/schemas/NotificationStatus"
+          type: string
+          examples:
+          - FAILED
+          description: Notification status
+        createdAt:
+          $ref: "#/components/schemas/LocalDateTime"
+          type: string
+          examples:
+          - 2025-10-26T14:30:00
+          description: Timestamp the notification was created
+        updatedAt:
+          $ref: "#/components/schemas/LocalDateTime"
+          type: string
+          examples:
+          - 2025-10-26T14:31:12
+          description: Timestamp the notification was last updated
+    GetChannelsResponse:
+      type: object
+      description: Response containing list of available notification channels
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelInfo"
+          description: List of available channels
+        total:
+          type: integer
+          format: int32
+          examples:
+          - 4
+          description: Total number of channels
+    GetFailedNotificationsRequest:
+      type: object
+      description: Query parameters for paginating failed notifications
+      properties:
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+    GetLocalesResponse:
+      type: object
+      description: Response containing list of available locales
+      properties:
+        locales:
+          type: array
+          examples:
+          - - en
+            - bg
+          items:
+            type: string
+          description: List of available locales
+        defaultLocale:
+          type: string
+          examples:
+          - en
+          description: Default locale
+        total:
+          type: integer
+          format: int32
+          examples:
+          - 2
+          description: Total number of locales
+    GetTemplatesRequest:
+      type: object
+      description: Query parameters for filtering templates
+      properties:
+        type:
+          type: string
+        locale:
+          type: string
+        includeDescription:
+          type: boolean
+    GetTemplatesResponse:
+      type: object
+      description: Response containing list of available templates
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateInfo"
+          description: List of available templates
+        total:
+          type: integer
+          format: int32
+          examples:
+          - 6
+          description: Total number of templates
+    LocalDateTime:
+      type: string
+      format: date-time
+    MetricsResponse:
+      type: object
+      description: Today's notification metrics
+      properties:
+        total:
+          type: integer
+          format: int64
+          examples:
+          - 142
+          description: Total notifications sent today
+        byChannel:
+          type: object
+          examples:
+          - EMAIL: 100
+            SMS: 30
+            TELEGRAM: 12
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Per-channel notification counts for today
+        successRate:
+          type: number
+          format: double
+          examples:
+          - 98.5
+          description: "Overall success rate today, 0-100"
+    NotificationChannel:
+      type: string
+      enum:
+      - EMAIL
+      - SMS
+      - TELEGRAM
+    NotificationStatus:
+      type: string
+      enum:
+      - QUEUED
+      - PROCESSING
+      - SENT
+      - FAILED
+    PageResponse:
+      type: object
+      description: Paginated list of items
+      properties:
+        items:
+          type: array
+          items: {}
+          description: Items in the current page
+        page:
+          type: integer
+          format: int32
+          examples:
+          - 0
+          description: Current page number (0-based)
+        size:
+          type: integer
+          format: int32
+          examples:
+          - 20
+          description: Number of items per page
+        totalItems:
+          type: integer
+          format: int64
+          examples:
+          - 42
+          description: Total number of items across all pages
+        totalPages:
+          type: integer
+          format: int32
+          examples:
+          - 3
+          description: Total number of pages
+    SendGridEvent:
+      type: object
+      properties:
+        email:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+        event:
+          type: string
+        sg_message_id:
+          type: string
+        notificationId:
+          type: string
+    SendNotificationRequest:
+      type: object
+      required:
+      - channel
+      - recipient
+      description: Request for sending a notification synchronously
+      properties:
+        channel:
+          $ref: "#/components/schemas/NotificationChannel"
+          type: string
+          examples:
+          - EMAIL
+          description: Notification channel
+        recipient:
+          type: string
+          examples:
+          - ivan.petrov@example.com
+          pattern: \S
+          description: Recipient email address or phone number
+        templateName:
+          type: string
+          examples:
+          - email/welcome
+          description: Template name to use for the notification via email
+        message:
+          type: string
+          examples:
+          - Welcome to our application!
+          description: Plain text message (used if no template specified) for sms
+        data:
+          type: object
+          examples:
+          - firstName: Ivan
+            actionUrl: https://app.com/dashboard
+            supportEmail: support@app.com
+            appName: My App
+            year: "2025"
+          additionalProperties: {}
+          description: Data to be used in template rendering
+    SendNotificationResponse:
+      type: object
+      description: Response for sending a notification synchronously
+      properties:
+        notificationId:
+          type: string
+          examples:
+          - 550e8400-e29b-41d4-a716-446655440000
+          description: Unique notification identifier
+        status:
+          $ref: "#/components/schemas/NotificationStatus"
+          type: string
+          examples:
+          - SENT
+          description: Notification status
+        message:
+          type: string
+          examples:
+          - Notification sent successfully
+          description: Status message
+        timestamp:
+          $ref: "#/components/schemas/LocalDateTime"
+          type: string
+          examples:
+          - 2025-10-26T14:30:00
+          description: Timestamp of the operation
+        recipient:
+          type: string
+          examples:
+          - ivan.petrov@example.com
+          description: Recipient identifier
+        channel:
+          type: string
+          examples:
+          - EMAIL
+          description: Notification channel
+    TemplateInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        locales:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        description:
+          type: string
+    TemplateValidationRequest:
+      type: object
+      required:
+      - template
+      - locale
+      description: Query parameters for template validation
+      properties:
+        template:
+          type: string
+          pattern: \S
+        locale:
+          type: string
+          pattern: "^[a-z]{2}(_[A-Z]{2})?$"
+    TemplateValidationResponse:
+      type: object
+      description: Response for template validation
+      properties:
+        template:
+          type: string
+          examples:
+          - email/welcome
+          description: Template name
+        locale:
+          type: string
+          examples:
+          - bg
+          description: Locale
+        exists:
+          type: boolean
+          examples:
+          - true
+          description: Whether the template exists
+        message:
+          type: string
+          examples:
+          - Template 'email/welcome' exists for locale 'bg'
+          description: Validation message
+    UpdateTemplateRequest:
+      type: object
+      required:
+      - content
+      description: Request object for updating existing template content
+      properties:
+        content:
+          type: string
+          pattern: \S
+        active:
+          type: boolean
+tags:
+- name: Metrics & Analytics
+  description: "Operational metrics, statistics, and performance analytics for notification\
+    \ delivery"
+- name: Notification Channels
+  description: Discovery and information about available notification delivery channels
+- name: Notification Delivery
+  description: "Send notifications across multiple channels (EMAIL, SMS, TELEGRAM)\
+    \ with template support"
+- name: Template Management
+  description: "Discovery, validation, and metadata retrieval for notification templates"
+- name: Webhooks
+  description: Endpoints for receiving delivery status updates from external providers
+paths:
+  /api/v1/channels:
+    get:
+      summary: List all notification channels
+      description: |
+        Returns all available notification delivery channels with their current status and capabilities.
+
+        **Channel Types:**
+        - EMAIL: Traditional email notifications with rich HTML content support
+        - SMS: Text message notifications for critical, time-sensitive alerts
+        - TELEGRAM: Instant messaging via Telegram Bot API with interactive buttons
+
+        **Response Information:**
+        Each channel includes:
+        - Name: Unique channel identifier (used in send notification requests)
+        - Description: Human-readable description of the channel capabilities
+        - Enabled: Boolean indicating if the channel is currently operational
+
+        **Caching Recommendation:**
+        Channel information is relatively static. Consider caching results for 5-10 minutes
+        to reduce unnecessary API calls, but implement cache invalidation for real-time
+        availability requirements.
+      tags:
+      - Notification Channels
+      responses:
+        "200":
+          description: Successfully retrieved list of available notification channels
+          content:
+            application/json:
+              examples:
+                Typical Response:
+                  summary: All channels available
+                  value:
+                    channels:
+                    - name: EMAIL
+                      description: Send notifications via email
+                      enabled: true
+                    - name: SMS
+                      description: Send notifications via SMS
+                      enabled: true
+                    - name: TELEGRAM
+                      description: Send notifications via Telegram
+                      enabled: true
+                    totalCount: 4
+              schema:
+                $ref: "#/components/schemas/GetChannelsResponse"
+  /api/v1/metrics/today:
+    get:
+      summary: Get today's notification metrics
+      description: |
+        Returns comprehensive statistics and metrics for all notifications processed today.
+
+        **Metric Categories:**
+
+        1. **Volume Metrics:**
+           - Total notification count across all channels
+           - Per-channel breakdown showing distribution
+
+        2. **Performance Metrics:**
+           - Overall success rate percentage
+           - Individual channel success rates (included in byChannel object)
+
+        3. **Temporal Information:**
+           - Metrics cover current day from 00:00:00 UTC
+           - Timestamp of last metric update included
+
+        **Response Structure:**
+        ```json
+        {
+          "total": <number>,           // Total notifications sent today
+          "byChannel": {               // Channel-specific breakdown
+            "EMAIL": <number>,
+            "SMS": <number>,
+            "TELEGRAM": <number>
+          },
+          "successRate": <decimal>,    // Overall success rate (0-100%)
+        }
+        ```
+
+        **Interpretation Guidelines:**
+
+        - **High Volume:** Verify if expected; check for potential abuse
+        - **Low Success Rate (<95%):** Investigate provider issues or configuration
+        - **Channel Anomalies:** Significant deviation from baseline requires review
+        - **Zero Metrics:** Normal early in day or during maintenance windows
+
+        **Best Practices:**
+        - Poll this endpoint at regular intervals (5-60 seconds) for real-time monitoring
+        - Set up alerts for success rate drops below acceptable thresholds
+        - Compare daily patterns to identify anomalies or trends
+        - Use channel metrics to optimize routing and load distribution
+      tags:
+      - Metrics & Analytics
+      responses:
+        "200":
+          description: Successfully retrieved today's metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsResponse"
+  /api/v1/notifications/failed:
+    get:
+      summary: List failed notifications
+      description: |
+        Returns a paginated list of notifications whose delivery status is FAILED,
+        ordered by creation date (most recent first).
+
+        **Pagination:**
+        - `page`: 0-based page index (default 0)
+        - `size`: number of items per page, capped at 100 (default 20)
+      tags:
+      - Notification Delivery
+      parameters:
+      - description: Page number (0-based)
+        example: 0
+        name: page
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - description: Page size (max 100)
+        example: 20
+        name: size
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          description: Paginated list of failed notifications
+          content:
+            application/json:
+              examples:
+                Failed Notifications Page:
+                  value:
+                    items:
+                    - notificationId: 550e8400-e29b-41d4-a716-446655440000
+                      recipient: ivan.petrov@example.com
+                      channel: EMAIL
+                      templateName: email/welcome
+                      status: FAILED
+                      createdAt: 2025-10-26T14:30:00
+                      updatedAt: 2025-10-26T14:31:12
+                    page: 0
+                    size: 20
+                    totalItems: 1
+                    totalPages: 1
+              schema:
+                $ref: "#/components/schemas/PageResponse"
+  /api/v1/notifications/send:
+    post:
+      summary: Send a notification
+      description: |
+        Delivers a notification to a recipient via the specified channel using template-based content.
+
+        **Channel Selection:**
+        Choose the appropriate channel based on your use case:
+
+        - **EMAIL**:
+          - Rich HTML content with images, links, and formatting
+          - Suitable for: newsletters, reports, detailed communications
+          - Delivery time: 1-30 seconds (depends on recipient mail server)
+          - Best for: Non-urgent, content-rich messages
+
+        - **SMS**:
+          - Plain text only, character limits apply
+          - Suitable for: OTP codes, critical alerts, appointment reminders
+          - Delivery time: 1-5 seconds
+          - Best for: Time-sensitive, brief messages
+
+        - **TELEGRAM**:
+          - Rich text with markdown, buttons, and media
+          - Suitable for: Interactive notifications, bot communications
+          - Delivery time: < 1 second (instant)
+          - Best for: Real-time updates, interactive workflows
+
+        **Locale Handling:**
+        The notification language is determined by the Accept-Language header:
+        - Supported: 'en' (English), 'bg' (Bulgarian)
+        - Default fallback: 'en'
+        - Header format: Accept-Language: bg, en;q=0.9
+
+        **Template Parameters:**
+        Templates use mustache-style placeholders ({{variableName}}). Ensure all required
+        parameters for your template are provided in the parameters object.
+
+        **Common Parameters:**
+        - firstName, lastName: User names
+        - email: User email
+        - actionUrl: Call-to-action link
+        - code: Verification or OTP code
+        - expiryMinutes: Code expiration time
+
+        **Rate Limiting:**
+        Each channel has independent rate limits per recipient:
+        - EMAIL: 10/hour
+        - SMS: 5/hour
+        - TELEGRAM: 20/hour
+
+        Exceeding limits returns HTTP 429 with retry-after information.
+
+        **Deduplication:**
+        Identical notifications (same recipient, template, channel) within 5 minutes
+        are automatically deduplicated to prevent spam.
+
+        **Best Practices:**
+        1. Always validate recipient format before calling the API
+        2. Include all required template parameters
+        3. Handle rate limit responses gracefully with backoff
+        4. Use appropriate channel for message urgency and content type
+        5. Set Accept-Language header to user's preferred language
+        6. Store the returned notificationId for tracking and debugging
+        7. Implement retry logic for 502/503 errors with exponential backoff
+      tags:
+      - Notification Delivery
+      parameters:
+      - description: |
+          Preferred language for notification content. Determines which template variant to use.
+
+          **Supported Values:**
+          - `en`: English (default)
+          - `bg`: Bulgarian
+
+          **Format:**
+          Standard HTTP Accept-Language header format with optional quality values.
+          Examples:
+          - Accept-Language: bg
+          - Accept-Language: bg, en;q=0.9
+
+          **Fallback Behavior:**
+          If the requested locale is not supported or if the template doesn't exist
+          in that locale, the system automatically falls back to English (en).
+
+          **Quality Values:**
+          When multiple locales are specified, the system selects the highest-priority
+          supported locale. Quality values (q=) determine priority.
+        example: bg
+        in: header
+        name: Accept-Language
+        schema:
+          type: string
+          enum:
+          - en
+          - bg
+          default: en
+      requestBody:
+        description: Notification request payload with examples for different channels
+        content:
+          application/json:
+            examples:
+              "1. Telegram (Daily Update)":
+                summary: Send a Telegram Daily Summary to Alex
+                value:
+                  channel: TELEGRAM
+                  recipient: "1898155128"
+                  templateName: telegram/daily_reminder
+                  data:
+                    firstName: Alex
+                    taskCount: "5"
+                    messageCount: "1"
+                    nextEvent: Project Demo 🚀
+              "2. Telegram (Raw Message)":
+                summary: Send a direct text message without a template
+                value:
+                  channel: TELEGRAM
+                  recipient: "1898155128"
+                  message: "🚨 System Alert: High CPU Usage detected on production\
+                    \ server."
+              "3. Email (Welcome)":
+                summary: Send a Welcome Email (Replace recipient with real email)
+                value:
+                  channel: EMAIL
+                  recipient: alexorozov@gmail.com
+                  templateName: email/welcome
+                  data:
+                    firstName: Alex
+                    actionUrl: https://myapp.com/login
+                    supportEmail: help@myapp.com
+                    appName: QuarkusNotif
+                    year: "2025"
+              "4. SMS (OTP)":
+                summary: Send an OTP via SMS
+                value:
+                  channel: SMS
+                  recipient: "+15005550006"
+                  templateName: sms/verification_code
+                  data:
+                    code: "482910"
+                    expiryMinutes: "5"
+                    appName: QuarkusNotif
+            schema:
+              $ref: "#/components/schemas/SendNotificationRequest"
+        required: true
+      responses:
+        "202":
+          description: |
+            Notification sent successfully and delivery confirmed by the provider.
+
+            The response includes:
+            - Unique notification ID for tracking
+            - Delivery status (SENT)
+            - Success message
+            - Echo of recipient and channel for verification
+
+            **Note:** A 200 response indicates the notification was accepted and delivered
+            by the channel provider, but does not guarantee end-user receipt (e.g., email
+            could still bounce, SMS could be blocked by carrier filters).
+          content:
+            application/json:
+              examples:
+                Successful Delivery:
+                  value:
+                    notificationId: 550e8400-e29b-41d4-a716-446655440000
+                    status: SENT
+                    message: Notification sent successfully
+                    recipient: john.doe@example.com
+                    channel: EMAIL
+                    timestamp: 2025-10-31T14:23:45Z
+              schema:
+                $ref: "#/components/schemas/SendNotificationResponse"
+        "400":
+          description: |
+            Bad Request - Invalid input data or validation failure.
+
+            **Common Causes:**
+            - Missing required fields (recipient, channel, template, parameters)
+            - Invalid recipient format for the specified channel
+            - Template does not exist for the resolved locale
+            - Missing required template parameters
+            - Invalid channel enum value
+            - Malformed JSON request body
+
+            **Resolution:**
+            - Verify all required fields are present
+            - Check recipient format matches channel requirements
+            - Validate template exists using Template API
+            - Ensure all template parameters are provided
+            - Check JSON syntax and structure
+          content:
+            application/json:
+              examples:
+                Validation Error:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: Invalid email address format
+                    field: recipient
+                    value: invalid-email
+                    timestamp: 2025-10-31T14:23:45Z
+        "429":
+          description: |
+            Rate Limit Exceeded - Too many requests for this recipient and channel.
+
+            **Rate Limits:**
+            - EMAIL: 10 notifications per hour
+            - SMS: 5 notifications per hour
+            - TELEGRAM: 20 notifications per hour
+
+            **Response Headers:**
+            - X-RateLimit-Limit: Maximum allowed requests
+            - X-RateLimit-Remaining: Remaining requests in current window
+            - X-RateLimit-Reset: Unix timestamp when limit resets
+            - Retry-After: Seconds to wait before retrying
+
+            **Resolution:**
+            - Implement exponential backoff retry strategy
+            - Respect Retry-After header
+            - Consider distributing load across time
+            - For bulk operations, implement queuing system
+          content:
+            application/json:
+              examples:
+                Rate Limit Error:
+                  value:
+                    error: RATE_LIMIT_EXCEEDED
+                    message: Rate limit exceeded for SMS channel
+                    channel: SMS
+                    recipient: "+359876543210"
+                    limit: 5
+                    window: 1 hour
+                    retryAfter: 1847
+                    timestamp: 2025-10-31T14:23:45Z
+        "503":
+          description: |
+            Service Unavailable - Notification service is temporarily down or channel not configured.
+
+            **Common Causes:**
+            - Notification service is in maintenance mode
+            - Required channel provider is not configured
+            - Database or Redis is unreachable
+            - System resources exhausted (memory, connections)
+            - Service is starting up or shutting down
+
+            **Resolution:**
+            - Check service health endpoint
+            - Verify all required channel configurations are present
+            - Wait and retry after a delay (respect Retry-After header if present)
+            - Check system resource availability
+            - Review application logs for configuration errors
+
+            **Retry Strategy:**
+            Wait 30-60 seconds before retrying. If issue persists, check system status.
+          content:
+            application/json:
+              examples:
+                Service Unavailable:
+                  value:
+                    error: SERVICE_UNAVAILABLE
+                    message: Email channel is not configured
+                    channel: EMAIL
+                    reason: Missing SendGrid API key configuration
+                    timestamp: 2025-10-31T14:23:45Z
+  /api/v1/templates:
+    get:
+      tags:
+      - Template Management
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+      - Template Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTemplateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/v1/templates/discovery:
+    get:
+      summary: List all available templates
+      description: |
+        Returns all notification templates with metadata and optional filtering by type or locale.
+
+        **Template Discovery:**
+        This endpoint provides comprehensive information about all templates available in the
+        notification system. Use it to:
+        - Discover what notifications your application can send
+        - Build dynamic UIs that adapt to available templates
+        - Generate documentation
+        - Verify deployment completeness
+
+        **Query Parameters:**
+        Both parameters are optional. If neither is provided, all templates are returned.
+
+        - **type**: Filter by channel type (email, sms, telegram)
+          - Example: ?type=email returns only email templates
+          - Case-insensitive
+
+        - **locale**: Filter by locale availability
+          - Example: ?locale=bg returns only templates with Bulgarian variants
+          - Shows templates that have at least one variant in the specified locale
+
+        **Response Structure:**
+        ```json
+        {
+          "templates": [
+            {
+              "name": "welcome",
+              "type": "email",
+              "locales": ["en", "bg"],
+              "description": "Welcome email for new users",
+              "requiredParameters": [
+                "firstName",
+                "actionUrl",
+                "supportEmail",
+                "appName",
+                "year"
+              ],
+              "optionalParameters": ["lastName"]
+            }
+          ],
+          "totalCount": 1,
+          "filteredBy": {
+            "type": "email",
+            "locale": null
+          }
+        }
+        ```
+
+        **Template Metadata:**
+
+        1. **name**: Use this value in the 'template' field when sending notifications
+        2. **type**: Indicates which channel this template is designed for
+        3. **locales**: All available language variants for this template
+        4. **description**: Human-readable purpose and use case
+        5. **requiredParameters**: Must be provided in notification request
+        6. **optionalParameters**: Can be provided but have defaults
+
+        **Filtering Examples:**
+
+        ```
+        # Get all templates
+        GET /api/v1/templates
+
+        # Get only email templates
+        GET /api/v1/templates?type=email
+
+        # Get only Bulgarian templates
+        GET /api/v1/templates?locale=bg
+
+        # Get Bulgarian email templates
+        GET /api/v1/templates?type=email&locale=bg
+        ```
+
+        **Integration Patterns:**
+
+        1. **Admin UI - Template Selector:**
+           ```javascript
+           // Fetch all templates on page load
+           const response = await fetch('/api/v1/templates');
+           const { templates } = await response.json();
+
+           // Populate dropdown
+           templates.forEach(t => {
+             addOption(t.name, t.description);
+           });
+           ```
+
+        2. **Validation Before Send:**
+           ```javascript
+           // Get available templates for user's locale
+           const response = await fetch(`/api/v1/templates?locale=${userLocale}`);
+           const { templates } = await response.json();
+
+           // Check if desired template exists
+           const templateExists = templates.some(t => t.name === 'welcome');
+           ```
+
+        3. **Template Discovery UI:**
+           ```javascript
+           // Group templates by channel
+           const response = await fetch('/api/v1/templates');
+           const { templates } = await response.json();
+
+           const byChannel = templates.reduce((acc, t) => {
+             (acc[t.type] = acc[t.type] || []).push(t);
+             return acc;
+           }, {});
+           ```
+
+        **Caching Recommendations:**
+        Template lists change infrequently (only on deployments). Consider:
+        - Client-side cache: 10 minutes
+        - CDN cache: 1 hour
+        - Invalidate cache on deployment
+
+        **Best Practices:**
+        - Filter by channel to reduce response size if only specific channels are needed
+        - Use requiredParameters to validate request data before sending notifications
+        - Check locales array to determine if template supports user's language
+        - Cache results to minimize API calls
+        - Display friendly names (from description) in UIs instead of template IDs
+      tags:
+      - Template Management
+      parameters:
+      - description: Include template descriptions in response
+        example: true
+        name: includeDescription
+        in: query
+        schema:
+          type: boolean
+          default: true
+      - description: Filter by locale availability
+        example: bg
+        name: locale
+        in: query
+        schema:
+          type: string
+      - description: "Filter by template type (email, sms, telegram)"
+        example: email
+        name: type
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Successfully retrieved list of templates
+          content:
+            application/json:
+              examples:
+                All Templates:
+                  summary: Unfiltered template list
+                  description: Example showing all available templates across channels
+                  value:
+                    templates:
+                    - name: welcome
+                      type: email
+                      locales:
+                      - en
+                      - bg
+                      description: Welcome email sent to new users upon registration
+                      requiredParameters:
+                      - firstName
+                      - actionUrl
+                      - supportEmail
+                      - appName
+                      - year
+                    - name: password_reset
+                      type: email
+                      locales:
+                      - en
+                      - bg
+                      description: Password reset instructions with secure link
+                      requiredParameters:
+                      - firstName
+                      - resetUrl
+                      - expiryHours
+                      - supportEmail
+                      - appName
+                      - year
+                    - name: verification_code
+                      type: sms
+                      locales:
+                      - en
+                      - bg
+                      description: OTP verification code for 2FA
+                      requiredParameters:
+                      - code
+                      - expiryMinutes
+                      - appName
+                    - name: appointment_reminder
+                      type: sms
+                      locales:
+                      - en
+                      - bg
+                      description: Reminder for upcoming appointments
+                      requiredParameters:
+                      - time
+                      - location
+                      - phone
+                    - name: daily_reminder
+                      type: telegram
+                      locales:
+                      - en
+                      - bg
+                      description: Daily summary of tasks and messages
+                      requiredParameters:
+                      - firstName
+                      - taskCount
+                      - messageCount
+                      - nextEvent
+                    totalCount: 5
+                    filteredBy:
+                      type: null
+                      locale: null
+                Filtered by Type:
+                  summary: Only email templates
+                  description: Result when filtering by type=email
+                  value:
+                    templates:
+                    - name: welcome
+                      type: email
+                      locales:
+                      - en
+                      - bg
+                      description: Welcome email sent to new users
+                      requiredParameters:
+                      - firstName
+                      - actionUrl
+                      - supportEmail
+                      - appName
+                      - year
+                    - name: password_reset
+                      type: email
+                      locales:
+                      - en
+                      - bg
+                      description: Password reset instructions
+                      requiredParameters:
+                      - firstName
+                      - resetUrl
+                      - expiryHours
+                      - supportEmail
+                      - appName
+                      - year
+                    totalCount: 2
+                    filteredBy:
+                      type: email
+                      locale: null
+                Filtered by Locale:
+                  summary: Only Bulgarian templates
+                  description: Result when filtering by locale=bg
+                  value:
+                    templates:
+                    - name: welcome
+                      type: email
+                      locales:
+                      - en
+                      - bg
+                      description: Welcome email sent to new users
+                      requiredParameters:
+                      - firstName
+                      - actionUrl
+                      - supportEmail
+                      - appName
+                      - year
+                    totalCount: 1
+                    filteredBy:
+                      type: null
+                      locale: bg
+              schema:
+                $ref: "#/components/schemas/GetTemplatesResponse"
+        "400":
+          description: |
+            Bad Request - Invalid filter parameter values.
+
+            This error occurs when:
+            - Invalid 'type' value (not one of: email, sms, telegram)
+            - Invalid 'locale' format
+
+            Query parameters must match expected formats and allowed values.
+          content:
+            application/json:
+              examples:
+                Invalid Filter:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: "Invalid channel type: push_notification"
+                    validTypes:
+                    - email
+                    - sms
+                    - telegram
+                    timestamp: 2025-10-31T14:23:45Z
+  /api/v1/templates/validate:
+    get:
+      summary: Validate template existence
+      description: |
+        Checks if a notification template exists and is available for a specific locale.
+
+        **Query Parameters:**
+        - **template** (required): The template identifier (e.g., "welcome", "password_reset")
+        - **locale** (required): The locale code (e.g., "en", "bg")
+
+        **Validation Process:**
+        1. Looks up template in the template registry
+        2. Checks if locale variant exists
+        3. Verifies template file integrity
+        4. Returns boolean result
+
+        **Use Cases:**
+
+        1. **Pre-Send Validation:**
+           Before sending a notification, verify the template exists:
+           ```
+           GET /api/v1/templates/validate?template=welcome&locale=bg
+           ```
+           If exists=false, either use fallback locale or show error.
+
+        2. **Development Testing:**
+           Verify all required templates are deployed:
+           ```
+           For each (template, locale) pair:
+             Call validate endpoint
+             Assert exists=true
+           ```
+
+        3. **Dynamic UI:**
+           Show only available templates in admin interface:
+           ```
+           For each template in list:
+             Call validate for user's locale
+             Show template only if exists=true
+           ```
+
+        4. **CI/CD Verification:**
+           Include in deployment pipeline:
+           ```
+           POST-DEPLOY:
+             Validate critical templates exist
+             Alert if any are missing
+           ```
+
+        **Response Fields:**
+        - **template**: Echo of requested template name
+        - **locale**: Echo of requested locale
+        - **exists**: Boolean indicating availability
+        - **fallbackAvailable**: (optional) Indicates if default locale exists
+
+        **Performance:**
+        - Execution time: < 1ms (in-memory lookup)
+        - No external dependencies
+        - Safe for high-frequency polling
+
+        **Note:**
+        This endpoint only validates existence, not template content or required parameters.
+        For full template metadata, use GET /api/v1/templates endpoint.
+      tags:
+      - Template Management
+      parameters:
+      - description: Locale to check
+        example: bg
+        required: true
+        name: locale
+        in: query
+        schema:
+          type: string
+          pattern: "^[a-z]{2}(_[A-Z]{2})?$"
+      - description: Template name to validate
+        example: email/welcome
+        required: true
+        name: template
+        in: query
+        schema:
+          type: string
+          pattern: \S
+      responses:
+        "200":
+          description: |
+            Validation completed successfully. Check the 'exists' field in the response
+            to determine if the template is available.
+
+            A 200 status is returned even when the template doesn't exist. The 'exists' field
+            in the response body indicates the actual availability.
+          content:
+            application/json:
+              examples:
+                Template Exists:
+                  summary: Template available for requested locale
+                  value:
+                    template: welcome
+                    locale: bg
+                    exists: true
+                    message: Template exists for the specified locale
+                Template Missing:
+                  summary: Template not available for requested locale
+                  value:
+                    template: custom_notification
+                    locale: de
+                    exists: false
+                    message: Template not found for the specified locale
+                    fallbackAvailable: true
+                    fallbackLocale: en
+              schema:
+                $ref: "#/components/schemas/TemplateValidationResponse"
+        "400":
+          description: |
+            Bad Request - Missing or invalid query parameters.
+
+            This error occurs when:
+            - 'template' parameter is missing or empty
+            - 'locale' parameter is missing or empty
+            - Parameter values contain invalid characters
+
+            Both template and locale are required query parameters.
+          content:
+            application/json:
+              examples:
+                Missing Parameters:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: "Missing required query parameter: template"
+                    requiredParameters:
+                    - template
+                    - locale
+                    timestamp: 2025-10-31T14:23:45Z
+  /api/v1/templates/{id}:
+    put:
+      tags:
+      - Template Management
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTemplateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+    get:
+      tags:
+      - Template Management
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+      - Template Management
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/webhooks/sendgrid:
+    post:
+      summary: Handle SendGrid events
+      description: |
+        Receives and processes event webhooks from SendGrid.
+
+        **Supported Events:**
+        - `delivered`: Email successfully reached the recipient's inbox
+        - `bounce`: Hard failure (invalid address, blocked)
+        - `dropped`: SendGrid dropped the email (reputation, suppression list)
+        - `spamreport`: Recipient marked email as spam
+
+        **Processing Logic:**
+        1. Extracts the `notificationId` from custom arguments
+        2. Updates the corresponding `NotificationRecord` in the database
+        3. Logs history in `NotificationAttempt`
+
+        **Response:**
+        Always returns 200 OK to acknowledge receipt, even if processing fails internally.
+        This prevents SendGrid from retrying the same event repeatedly.
+      tags:
+      - Webhooks
+      requestBody:
+        description: List of SendGrid events
+        content:
+          application/json:
+            examples:
+              SendGrid Event Batch:
+                value:
+                - email: user@example.com
+                  timestamp: 1612345678
+                  event: delivered
+                  sg_message_id: filterd-12345
+                  notificationId: 550e8400-e29b-41d4-a716-446655440000
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/SendGridEvent"
+        required: true
+      responses:
+        "200":
+          description: Events received successfully
+info:
+  title: notification-service API
+  version: 1.0-SNAPSHOT

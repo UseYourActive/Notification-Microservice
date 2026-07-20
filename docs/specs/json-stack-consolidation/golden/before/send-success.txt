@@ -1,0 +1,5 @@
+HTTP/1.1 202 Accepted
+Content-Type: application/json;charset=UTF-8
+content-length: 237
+
+{"channel":"EMAIL","message":"Notification queued for delivery","notificationId":"97a94a20-3ae1-46fb-a790-ddc2db555676","recipient":"json-stack-golden-1784472921@example.com","status":"QUEUED","timestamp":"2026-07-19T14:55:21.700787842"}recipient used: json-stack-golden-1784472921@example.com

@@ -106,34 +106,75 @@ and the existing `MetricsResourceApiTest` passes without modification.
 `MetricsTodayContractLiveTest` (unchanged in the live suite, still passing),
 live `/q/openapi` diff in the commit.
 
-## 4. Dual JSON-B/Jackson `MessageBodyReader` race — **open, not fixed**
+## 4. Dual JSON-B/Jackson `MessageBodyReader` race — **RESOLVED**
 
-**Discovered while fixing #1.** This app declares both `quarkus-rest-jsonb`
+**Discovered while fixing #1.** This app declared both `quarkus-rest-jsonb`
 (`pom.xml:74`) and `quarkus-rest-jackson` (`pom.xml:82`) as direct
 dependencies, with no comment explaining the coexistence. For
 `POST /api/v1/notifications/send`, RESTEasy Reactive's reader-priority
-resolution currently picks JSON-B (Yasson)'s `JsonbMessageBodyReader` over
+resolution picked JSON-B (Yasson)'s `JsonbMessageBodyReader` over
 Jackson's — confirmed by the live stack trace captured while fixing finding
-#1 (`docs/specs/api-findings-fixes/plan.md`). Nothing about this codebase's
-usage otherwise suggests JSON-B was the intended choice — `ErrorResponse`
-and other DTOs carry Jackson-specific annotations (`@JsonInclude`), and this
-is the only place JSON-B's involvement was ever observed.
+#1 (`docs/specs/api-findings-fixes/plan.md`).
 
-**Why this matters:** which reader wins is an accident of classpath/registration
-order, not a design decision — nondeterministic behavior surface (differs
-per endpoint, per Quarkus/RESTEasy Reactive version, possibly per build),
-extra native-image weight from carrying two full JSON stacks, and two
-different null-handling/naming conventions available depending on which
-reader happens to fire. Finding #1's fix (`JsonbDeserializationExceptionMapper`
-+ `JacksonDeserializationExceptionMapper`) is deliberately resilient to
-*either* reader winning, specifically because of this.
+**Root cause:** both extensions were present since the very first commit
+(`5fb5d2c`, "Initial commit"), added together with no explanation in
+that commit or the 20 subsequent commits touching `pom.xml` — consistent
+with a `code.quarkus.io` scaffold artifact (both "REST JSON-B" and "REST
+Jackson" extensions selected when generating the project), not a
+deliberate two-stack design. A full investigation
+(`docs/specs/json-stack-consolidation/plan.md`) found **zero** intentional
+production usage of JSON-B (`jakarta.json.bind.*`, `@Jsonb*` annotations)
+anywhere outside the exception mapper finding #1 added specifically to
+catch JSON-B's exception type defensively. Jackson, by contrast, is used
+pervasively and intentionally: `@JsonInclude`/`@JsonIgnoreProperties`/
+`@JsonProperty` on DTOs, a Jackson builder-deserialization pattern on the
+`Notification` domain model, a CDI-injected `ObjectMapper` in the webhook
+path, a manual `ObjectMapper` in the Telegram sender, `jackson-dataformat-yaml`,
+and `quarkus-rest-client-jackson` for outbound calls.
 
-**Fix location:** deliberately not touched in either this mission or
-`api-findings-fixes`. Consolidating onto one JSON stack (likely Jackson,
-the default everywhere else here) is its own future mission — real blast
-radius, since serialization semantics (null-handling, date formatting,
-naming) can differ subtly between the two, and every endpoint would need
-re-verification, not just the one this investigation happened to touch.
+**Surprise found during the fix, not just the reader:** a golden-response
+diff (captured before and after the swap, since live contract tests alone
+tolerate formatting drift) showed JSON-B was silently the active
+`MessageBodyWriter` too, not only the reader — response bodies were
+alphabetically field-ordered (Yasson's default) before the swap, and
+match each DTO's declaration order (Jackson's default) after. One real
+null-handling regression surfaced this way and was fixed:
+`FailedNotificationResponse` gained an explicit `"templateName": null`
+that JSON-B had been silently omitting (its default excludes nulls; the
+DTO had no `@JsonInclude`, unlike `ErrorResponse`) — fixed by adding
+`@JsonInclude(JsonInclude.Include.NON_NULL)`, matching the existing
+`ErrorResponse` pattern. Full per-endpoint diff verdicts in
+`docs/specs/json-stack-consolidation/golden/diff-report.md`.
+
+**Fix:** removed `quarkus-rest-jsonb` from `pom.xml`. Jackson is now the
+sole `MessageBodyReader`/`MessageBodyWriter`. `JsonbDeserializationExceptionMapper`
+(finding #1's defensive mapper for the JSON-B path) was deleted in the
+same commit — it targets `jakarta.json.bind.JsonbException`, which stops
+compiling the moment the extension is gone.
+`JacksonDeserializationExceptionMapper` (dormant since `api-findings-fixes`)
+is now the live path; its field-name improvement over the JSON-B path
+(`InvalidFormatException.getPath()` recovering the literal JSON field
+name, e.g. `"channel"`, instead of just the enum type name) was asserted
+live in `InvalidChannelValidationLiveTest`, confirming the message
+asymmetry noted in `api-findings-fixes/plan.md` improved as predicted.
+
+**Native-image weight:** two local `-Pnative` builds (dual-stack vs.
+Jackson-only) showed a 1,466,368-byte (1.40 MiB, 1.12%) reduction in the
+runner binary, with the pre-swap build log showing a Yasson-contributed
+native-image resource config absent post-swap.
+
+**Commits:** `d75ad99` (T1, pre-swap golden baseline), `ace27c7` (T2,
+extension + mapper removal), `56fb8db` (T3, post-swap golden diff +
+`FailedNotificationResponse` null-handling fix), `66542a3` (T4, live
+prophecy-check assertion), `b3211d5` (T5, `/q/openapi` diff + manual spot
+check), `1b0f3b6` (T6, native image size before/after).
+
+**Proof:** full internal suite (166/166) and live black-box suite (8/8)
+green post-swap; `docs/specs/json-stack-consolidation/golden/diff-report.md`
+(golden-response diff, the durable wire-freeze record);
+`InvalidChannelValidationLiveTest` (live, strengthened field-name
+assertion); `mvn dependency:tree` confirming no `jakarta.json.bind`/Yasson
+artifact remains on the classpath.
 
 ## Also fixed in this mission (not originally a numbered finding here)
 

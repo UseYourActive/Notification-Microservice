@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+content-length: 257
+
+{"channels":[{"name":"EMAIL","description":"Send notifications via email","enabled":true},{"name":"SMS","description":"Send notifications via SMS","enabled":true},{"name":"TELEGRAM","description":"Send notifications via Telegram","enabled":true}],"total":3}
